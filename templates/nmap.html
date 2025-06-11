@@ -402,6 +402,14 @@
                                 <i class="fas fa-stop"></i> Arrêter
                             </button>
                         </div>
+
+                        <!-- Status du scan avec spinner -->
+                        <div id="scanStatusContainer" style="display: none; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+                            <div class="d-flex align-items-center">
+                                <span class="loading-spinner" id="loadingSpinner"></span>
+                                <span id="scanStatusMessage">Démarrage du scan...</span>
+                            </div>
+                        </div>
                     </form>
                 </div>
 
@@ -414,7 +422,7 @@
                             <span class="status-indicator status-idle" id="statusIndicator"></span>
                             <span id="statusText">Prêt</span>
                         </h4>
-                        <div>
+                        <div id="scanIdContainer" style="display: none;">
                             <small class="text-muted">Scan ID: <span id="currentScanId">-</span></small>
                         </div>
                     </div>
@@ -607,14 +615,19 @@
                 return;
             }
 
-            // Afficher la console
-            document.getElementById('consoleContainer').style.display = 'block';
-            document.getElementById('consoleContainer').scrollIntoView({ behavior: 'smooth' });
-
             // Mettre à jour l'interface
             document.getElementById('startScanBtn').style.display = 'none';
             document.getElementById('stopScanBtn').style.display = 'inline-block';
+            
+            // Afficher le statut avec spinner
+            document.getElementById('scanStatusContainer').style.display = 'block';
+            document.getElementById('scanStatusMessage').textContent = `Démarrage du scan sur ${target}...`;
+            
             updateStatus('running', 'Démarrage du scan...');
+
+            // Afficher la console
+            document.getElementById('consoleContainer').style.display = 'block';
+            document.getElementById('consoleContainer').scrollIntoView({ behavior: 'smooth' });
 
             // Effacer la console
             clearConsole();
@@ -633,92 +646,123 @@
 
             fetch('/scan/nmap', {
                 method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: formData
             })
-            .then(response => response.text())
-            .then(html => {
-                // Extraire le scan_id de la redirection
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const title = doc.title;
-                
-                // Générer un ID de scan factice
-                currentScanId = `nmap_${Date.now()}`;
-                document.getElementById('currentScanId').textContent = currentScanId;
-                
-                addConsoleMessage('success', 'Scan démarré avec succès');
-                
-                // Simuler la progression du scan
-                simulateScanProgress();
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentScanId = data.scan_id;
+                    document.getElementById('currentScanId').textContent = currentScanId;
+                    
+                    // Mettre à jour le message de statut
+                    document.getElementById('scanStatusMessage').textContent = `Scan en cours sur ${target}...`;
+                    
+                    addConsoleMessage('success', data.message);
+                    
+                    // Démarrer le suivi du progrès réel
+                    startProgressPolling();
+                } else {
+                    addConsoleMessage('error', data.error || 'Erreur lors du démarrage');
+                    updateStatus('error', 'Erreur');
+                    hideScanStatus();
+                    resetInterface();
+                }
             })
             .catch(error => {
                 addConsoleMessage('error', `Erreur lors du démarrage: ${error.message}`);
                 updateStatus('error', 'Erreur');
+                hideScanStatus();
                 resetInterface();
             });
         }
 
-        // Simuler la progression du scan
-        function simulateScanProgress() {
-            let progress = 0;
+        // Suivre le progrès du scan réel
+        function startProgressPolling() {
             document.getElementById('progressContainer').style.display = 'block';
             
-            const messages = [
-                'Initialisation du scan...',
-                'Découverte des hôtes actifs...',
-                'Scan des ports TCP...',
-                'Détection des services...',
-                'Analyse des réponses...',
-                'Finalisation du scan...'
-            ];
-
-            let messageIndex = 0;
+            addConsoleMessage('output', 'Exécution du scan en cours...');
             
             scanInterval = setInterval(() => {
-                progress += Math.random() * 15 + 5;
+                if (!currentScanId) return;
                 
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(scanInterval);
-                    completeScan();
-                }
-                
-                // Mettre à jour la barre de progression
-                const progressBar = document.getElementById('progressBar');
-                const progressText = document.getElementById('progressText');
-                progressBar.style.width = `${progress}%`;
-                progressText.textContent = `${Math.round(progress)}%`;
-                
-                // Ajouter des messages de progression
-                if (messageIndex < messages.length && progress > (messageIndex + 1) * 16) {
-                    addConsoleMessage('output', messages[messageIndex]);
-                    messageIndex++;
-                }
-            }, 1000);
+                fetch(`/scan/nmap/progress/${currentScanId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'completed') {
+                            clearInterval(scanInterval);
+                            completeScan(data.result);
+                        } else if (data.status === 'error') {
+                            clearInterval(scanInterval);
+                            handleScanError(data.result);
+                        }
+                        // Si status === 'running', continuer à attendre
+                    })
+                    .catch(error => {
+                        addConsoleMessage('error', `Erreur de communication: ${error.message}`);
+                    });
+            }, 2000); // Vérifier toutes les 2 secondes
         }
 
-        // Terminer le scan
-        function completeScan() {
+        // Terminer le scan avec les vrais résultats
+        function completeScan(result) {
             updateStatus('completed', 'Scan terminé');
             
-            // Simuler des résultats
+            // Mettre à jour le message de statut
+            document.getElementById('scanStatusMessage').textContent = 'Scan terminé avec succès !';
+            
+            addConsoleMessage('output', '─'.repeat(50));
+            addConsoleMessage('success', 'Scan terminé avec succès !');
+            addConsoleMessage('output', '');
+            
+            if (result && result.output) {
+                // Afficher les vrais résultats du module nmap
+                const lines = result.output.split('\n');
+                lines.forEach(line => {
+                    if (line.trim()) {
+                        addConsoleMessage('output', line);
+                    }
+                });
+            } else {
+                addConsoleMessage('warning', 'Aucun résultat disponible');
+            }
+            
+            addConsoleMessage('output', '');
+            addConsoleMessage('success', `Scan terminé à ${new Date().toLocaleString()}`);
+            
+            // Masquer le statut et scan ID après completion
             setTimeout(() => {
-                addConsoleMessage('output', '─'.repeat(50));
-                addConsoleMessage('success', 'Scan terminé avec succès !');
-                addConsoleMessage('output', '');
-                addConsoleMessage('output', 'Résultats du scan:');
-                addConsoleMessage('output', 'Nmap scan report for scanme.nmap.org (45.33.32.156)');
-                addConsoleMessage('output', 'Host is up (0.12s latency).');
-                addConsoleMessage('output', 'Not shown: 996 closed ports');
-                addConsoleMessage('output', 'PORT     STATE SERVICE');
-                addConsoleMessage('output', '22/tcp   open  ssh');
-                addConsoleMessage('output', '80/tcp   open  http');
-                addConsoleMessage('output', '443/tcp  open  https');
-                addConsoleMessage('output', '9929/tcp open  nping-echo');
-                addConsoleMessage('output', '');
-                addConsoleMessage('success', `Scan terminé: 4 ports ouverts détectés`);
-                addConsoleMessage('output', `Durée totale: ${Math.floor(Math.random() * 30 + 10)} secondes`);
-            }, 1000);
+                hideScanStatus();
+                document.getElementById('scanIdContainer').style.display = 'none';
+            }, 3000);
+            
+            resetInterface();
+        }
+
+        // Gérer les erreurs de scan
+        function handleScanError(result) {
+            updateStatus('error', 'Erreur lors du scan');
+            
+            // Mettre à jour le message de statut
+            document.getElementById('scanStatusMessage').textContent = 'Erreur lors du scan';
+            
+            addConsoleMessage('output', '─'.repeat(50));
+            addConsoleMessage('error', 'Erreur lors du scan !');
+            
+            if (result && result.error) {
+                addConsoleMessage('error', `Détails: ${result.error}`);
+            }
+            
+            addConsoleMessage('output', '');
+            addConsoleMessage('warning', 'Vérifiez la cible et réessayez');
+            
+            // Masquer le statut et scan ID après erreur
+            setTimeout(() => {
+                hideScanStatus();
+                document.getElementById('scanIdContainer').style.display = 'none';
+            }, 3000);
             
             resetInterface();
         }
@@ -732,6 +776,7 @@
             
             addConsoleMessage('warning', 'Scan arrêté par l\'utilisateur');
             updateStatus('error', 'Arrêté');
+            hideScanStatus();
             resetInterface();
         }
 
@@ -740,15 +785,36 @@
             document.getElementById('startScanBtn').style.display = 'inline-block';
             document.getElementById('stopScanBtn').style.display = 'none';
             document.getElementById('progressContainer').style.display = 'none';
+            
+            // Masquer la barre de progression
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
         }
 
         // Mettre à jour le statut
         function updateStatus(status, message) {
             const indicator = document.getElementById('statusIndicator');
             const statusText = document.getElementById('statusText');
+            const scanIdContainer = document.getElementById('scanIdContainer');
             
             indicator.className = `status-indicator status-${status}`;
             statusText.textContent = message;
+            
+            // Afficher/masquer le scan ID selon le statut
+            if (status === 'running') {
+                scanIdContainer.style.display = 'block';
+            } else {
+                if (status === 'idle') {
+                    scanIdContainer.style.display = 'none';
+                }
+            }
+        }
+
+        // Masquer le statut du scan
+        function hideScanStatus() {
+            document.getElementById('scanStatusContainer').style.display = 'none';
         }
 
         // Ajouter un message à la console
@@ -773,6 +839,7 @@
             const defaultCard = document.querySelector('input[value="basic"]').closest('.scan-type-card');
             selectScanType('basic', defaultCard);
             updateStatus('idle', 'Prêt');
+            document.getElementById('currentScanId').textContent = '-';
         }
 
         // Scan rapide

@@ -38,6 +38,11 @@ def nmap_page():
     """Page dédiée Nmap Scanner"""
     return render_template('nmap.html')
 
+@app.route('/zap')
+def zap_page():
+    """Page dédiée OWASP ZAP Scanner"""
+    return render_template('owasp_zap.html')
+
 # ====== ROUTES NMAP ======
 @app.route('/scan/nmap', methods=['POST'])
 def nmap_scan():
@@ -276,19 +281,32 @@ def list_interfaces():
 # ====== ROUTES OWASP ZAP ======
 @app.route('/scan/zap', methods=['POST'])
 def zap_scan():
-    """Endpoint pour scan OWASP ZAP"""
+    """Endpoint pour scan OWASP ZAP - Support AJAX"""
     target_url = request.form.get('target_url')
     scan_type = request.form.get('zap_scan_type', 'baseline')
     
     if not target_url:
-        flash('Veuillez spécifier une URL cible', 'error')
-        return redirect(url_for('network_security'))
+        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+            # Requête AJAX
+            return jsonify({'error': 'Veuillez spécifier une URL cible'}), 400
+        else:
+            # Requête normale
+            flash('Veuillez spécifier une URL cible', 'error')
+            return redirect(url_for('zap_page'))
     
     scan_id = f"zap_{int(time.time())}"
-    scan_status[scan_id] = {'status': 'running', 'tool': 'OWASP ZAP', 'target': target_url}
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'OWASP ZAP', 
+        'target': target_url,
+        'scan_type': scan_type,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
     
     def run_scan():
         try:
+            # Ajouter un délai pour simuler un scan réel
+            time.sleep(2)
             if scan_type == 'baseline':
                 result = run_zap_baseline_scan(target_url)
             elif scan_type == 'spider':
@@ -318,8 +336,47 @@ def zap_scan():
     thread = threading.Thread(target=run_scan)
     thread.start()
     
-    flash(f'Scan OWASP ZAP démarré sur {target_url}', 'success')
-    return redirect(url_for('scan_status_page', scan_id=scan_id))
+    # Réponse différente selon le type de requête
+    if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+        # Requête AJAX
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id, 
+            'message': f'Scan OWASP ZAP démarré sur {target_url}',
+            'status': 'running'
+        })
+    else:
+        # Requête normale
+        flash(f'Scan OWASP ZAP démarré sur {target_url}', 'success')
+        return redirect(url_for('scan_status_page', scan_id=scan_id))
+
+# ====== NOUVELLE ROUTE POUR SUIVRE LE PROGRES ZAP ======
+@app.route('/scan/zap/progress/<scan_id>')
+def zap_progress(scan_id):
+    """API pour suivre le progrès d'un scan ZAP"""
+    if scan_id not in scan_status:
+        return jsonify({'error': 'Scan non trouvé'}), 404
+    
+    status = scan_status[scan_id]
+    result = scan_results.get(scan_id)
+    
+    response = {
+        'scan_id': scan_id,
+        'status': status['status'],
+        'tool': status['tool'],
+        'target': status.get('target'),
+        'start_time': status.get('start_time')
+    }
+    
+    if result:
+        response['result'] = {
+            'success': result['success'],
+            'output': result.get('output', ''),
+            'error': result.get('error', ''),
+            'timestamp': result.get('timestamp')
+        }
+    
+    return jsonify(response)
 
 # ====== ROUTES STATUT ET RÉSULTATS ======
 @app.route('/status/<scan_id>')
