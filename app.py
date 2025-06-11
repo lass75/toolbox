@@ -30,25 +30,43 @@ def index():
 
 @app.route('/network-security')
 def network_security():
-    """Interface scan sécurité réseau"""
+    """Interface de sélection des modules de sécurité réseau"""
     return render_template('network_security.html')
+
+@app.route('/nmap')
+def nmap_page():
+    """Page dédiée Nmap Scanner"""
+    return render_template('nmap.html')
 
 # ====== ROUTES NMAP ======
 @app.route('/scan/nmap', methods=['POST'])
 def nmap_scan():
-    """Endpoint pour scan Nmap"""
+    """Endpoint pour scan Nmap - Support AJAX"""
     target = request.form.get('target')
     scan_type = request.form.get('scan_type', 'basic')
     
     if not target:
-        flash('Veuillez spécifier une cible', 'error')
-        return redirect(url_for('network_security'))
+        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+            # Requête AJAX
+            return jsonify({'error': 'Veuillez spécifier une cible'}), 400
+        else:
+            # Requête normale
+            flash('Veuillez spécifier une cible', 'error')
+            return redirect(url_for('nmap_page'))
     
     scan_id = f"nmap_{int(time.time())}"
-    scan_status[scan_id] = {'status': 'running', 'tool': 'Nmap', 'target': target}
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'Nmap', 
+        'target': target,
+        'scan_type': scan_type,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
     
     def run_scan():
         try:
+            # Ajouter un délai pour simuler un scan réel
+            time.sleep(2)
             result = run_nmap_scan(target, scan_type)
             scan_results[scan_id] = {
                 'success': True,
@@ -72,8 +90,19 @@ def nmap_scan():
     thread = threading.Thread(target=run_scan)
     thread.start()
     
-    flash(f'Scan Nmap démarré sur {target}', 'success')
-    return redirect(url_for('scan_status_page', scan_id=scan_id))
+    # Réponse différente selon le type de requête
+    if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+        # Requête AJAX
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id, 
+            'message': f'Scan Nmap démarré sur {target}',
+            'status': 'running'
+        })
+    else:
+        # Requête normale
+        flash(f'Scan Nmap démarré sur {target}', 'success')
+        return redirect(url_for('scan_status_page', scan_id=scan_id))
 
 @app.route('/scan/nmap/quick', methods=['POST'])
 def nmap_quick():
@@ -84,7 +113,12 @@ def nmap_quick():
         return jsonify({'error': 'Cible manquante'}), 400
     
     scan_id = f"nmap_quick_{int(time.time())}"
-    scan_status[scan_id] = {'status': 'running', 'tool': 'Nmap Quick'}
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'Nmap Quick', 
+        'target': target,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
     
     def run_scan():
         try:
@@ -110,7 +144,40 @@ def nmap_quick():
     thread = threading.Thread(target=run_scan)
     thread.start()
     
-    return jsonify({'scan_id': scan_id, 'message': 'Scan rapide démarré'})
+    return jsonify({
+        'success': True,
+        'scan_id': scan_id, 
+        'message': f'Scan Nmap rapide démarré sur {target}',
+        'status': 'running'
+    })
+
+# ====== NOUVELLE ROUTE POUR SUIVRE LE PROGRES ======
+@app.route('/scan/nmap/progress/<scan_id>')
+def nmap_progress(scan_id):
+    """API pour suivre le progrès d'un scan Nmap"""
+    if scan_id not in scan_status:
+        return jsonify({'error': 'Scan non trouvé'}), 404
+    
+    status = scan_status[scan_id]
+    result = scan_results.get(scan_id)
+    
+    response = {
+        'scan_id': scan_id,
+        'status': status['status'],
+        'tool': status['tool'],
+        'target': status.get('target'),
+        'start_time': status.get('start_time')
+    }
+    
+    if result:
+        response['result'] = {
+            'success': result['success'],
+            'output': result.get('output', ''),
+            'error': result.get('error', ''),
+            'timestamp': result.get('timestamp')
+        }
+    
+    return jsonify(response)
 
 # ====== ROUTES AIRCRACK ======
 @app.route('/scan/wifi', methods=['POST'])
