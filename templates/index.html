@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybersecurity Toolbox - Accueil</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            padding: 20px;
+            border-right: 1px solid #dee2e6;
+        }
+        .module-card {
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .module-card:hover {
+            transform: translateY(-2px);
+        }
+        .scan-result-card {
+            margin-bottom: 15px;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+        }
+        .main-content {
+            padding: 20px;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-shield-alt"></i> Cybersecurity Toolbox
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">Accueil</a>
+                <a class="nav-link" href="{{ url_for('network_security') }}">Scan Securite</a>
+                <a class="nav-link" href="{{ url_for('all_results') }}">Tous les Resultats</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar - Modules disponibles -->
+            <div class="col-md-3 sidebar">
+                <h5 class="mb-4">
+                    <i class="fas fa-tools"></i> Modules Disponibles
+                </h5>
+                
+                <!-- Module Nmap -->
+                <div class="card module-card" onclick="showModuleInfo('nmap')">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-search fa-2x text-primary me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Nmap Scanner</h6>
+                                <small class="text-muted">Scan reseau et ports</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module OWASP ZAP -->
+                <div class="card module-card" onclick="showModuleInfo('zap')">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-globe fa-2x text-warning me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">OWASP ZAP</h6>
+                                <small class="text-muted">Test applications web</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module WiFi -->
+                <div class="card module-card" onclick="showModuleInfo('wifi')">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-wifi fa-2x text-success me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">WiFi Security</h6>
+                                <small class="text-muted">Analyse reseaux WiFi</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module Wireshark -->
+                <div class="card module-card" onclick="showModuleInfo('wireshark')">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-chart-line fa-2x text-info me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Wireshark</h6>
+                                <small class="text-muted">Analyse du trafic</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+                
+                <!-- Actions rapides -->
+                <h6 class="mb-3">Actions Rapides</h6>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('network_security') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-play"></i> Nouveau Scan
+                    </a>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="refreshResults()">
+                        <i class="fas fa-sync"></i> Actualiser
+                    </button>
+                    <a href="{{ url_for('all_results') }}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-list"></i> Voir Tout
+                    </a>
+                </div>
+            </div>
+
+            <!-- Contenu principal -->
+            <div class="col-md-9 main-content">
+                <!-- Messages Flash -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2>Tableau de Bord</h2>
+                        <p class="text-muted mb-0">Derniers scans effectues et modules disponibles</p>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">Derniere mise a jour: <span id="lastUpdate"></span></small>
+                    </div>
+                </div>
+
+                <!-- Statistiques rapides -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-primary" id="totalScans">0</h4>
+                                <small>Total Scans</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-success" id="completedScans">0</h4>
+                                <small>Termines</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-warning" id="runningScans">0</h4>
+                                <small>En cours</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-danger" id="errorScans">0</h4>
+                                <small>Erreurs</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Derniers scans -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-history"></i> Derniers Scans
+                                </h5>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadRecentScans()">
+                                    <i class="fas fa-sync"></i> Actualiser
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="recentScans">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-spinner fa-spin"></i> Chargement des resultats...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Information sur le module selectionne -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card" id="moduleInfo" style="display: none;">
+                            <div class="card-header">
+                                <h5 class="mb-0" id="moduleTitle">Information Module</h5>
+                            </div>
+                            <div class="card-body" id="moduleContent">
+                                <!-- Contenu dynamique -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Mettre a jour l'heure
+        function updateTime() {
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+
+        // Charger les derniers scans
+        function loadRecentScans() {
+            fetch('/api/results')
+                .then(response => response.json())
+                .then(data => {
+                    displayRecentScans(data);
+                    updateStatistics(data);
+                })
+                .catch(error => {
+                    document.getElementById('recentScans').innerHTML = 
+                        '<div class="text-center text-danger">Erreur lors du chargement des resultats</div>';
+                });
+        }
+
+        // Afficher les derniers scans
+        function displayRecentScans(scans) {
+            const container = document.getElementById('recentScans');
+            
+            if (Object.keys(scans).length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-search"></i>
+                        <p class="mb-0">Aucun scan effectue pour le moment</p>
+                        <a href="/network-security" class="btn btn-primary btn-sm mt-2">Commencer un scan</a>
+                    </div>
+                `;
+                return;
+            }
+
+            // Convertir en tableau et trier par timestamp (plus recent en premier)
+            const scanArray = Object.entries(scans).sort((a, b) => 
+                new Date(b[1].timestamp) - new Date(a[1].timestamp)
+            );
+
+            // Afficher les 5 derniers
+            const recentScans = scanArray.slice(0, 5);
+            
+            let html = '';
+            recentScans.forEach(([scanId, result]) => {
+                const statusClass = result.success ? 'success' : 'danger';
+                const statusText = result.success ? 'Termine' : 'Erreur';
+                const icon = getToolIcon(result.tool);
+                
+                html += `
+                    <div class="scan-result-card border-start border-3 border-${statusClass} p-3 mb-3 bg-light">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="${icon} me-2"></i>
+                                    <strong>${result.tool}</strong>
+                                    <span class="badge bg-${statusClass} status-badge ms-2">${statusText}</span>
+                                </div>
+                                <div class="text-muted small">
+                                    ${result.target ? 'Cible: ' + result.target : ''}
+                                    ${result.interface ? 'Interface: ' + result.interface : ''}
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="fas fa-clock"></i> ${result.timestamp}
+                                </div>
+                            </div>
+                            <div>
+                                <a href="/scan/${scanId}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> Voir
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // Mettre a jour les statistiques
+        function updateStatistics(scans) {
+            const total = Object.keys(scans).length;
+            let completed = 0, running = 0, errors = 0;
+            
+            Object.values(scans).forEach(scan => {
+                if (scan.success) completed++;
+                else errors++;
+            });
+            
+            document.getElementById('totalScans').textContent = total;
+            document.getElementById('completedScans').textContent = completed;
+            document.getElementById('runningScans').textContent = running;
+            document.getElementById('errorScans').textContent = errors;
+        }
+
+        // Obtenir l'icone selon l'outil
+        function getToolIcon(tool) {
+            const icons = {
+                'Nmap': 'fas fa-search text-primary',
+                'OWASP ZAP': 'fas fa-globe text-warning',
+                'WiFi Scanner': 'fas fa-wifi text-success',
+                'Wireshark': 'fas fa-chart-line text-info'
+            };
+            return icons[tool] || 'fas fa-cog';
+        }
+
+        // Afficher les informations d'un module
+        function showModuleInfo(moduleType) {
+            const moduleInfo = {
+                'nmap': {
+                    title: 'Nmap Scanner',
+                    content: `
+                        <p><strong>Description:</strong> Outil de decouverte reseau et audit de securite</p>
+                        <p><strong>Fonctionnalites:</strong></p>
+                        <ul>
+                            <li>Scan de ports (TCP/UDP)</li>
+                            <li>Detection d'OS</li>
+                            <li>Enumeration de services</li>
+                            <li>Scripts de vulnerabilites</li>
+                        </ul>
+                        <a href="/network-security" class="btn btn-primary">Utiliser Nmap</a>
+                    `
+                },
+                'zap': {
+                    title: 'OWASP ZAP',
+                    content: `
+                        <p><strong>Description:</strong> Proxy d'interception pour tests de securite web</p>
+                        <p><strong>Fonctionnalites:</strong></p>
+                        <ul>
+                            <li>Scan automatise des applications web</li>
+                            <li>Detection de vulnerabilites OWASP Top 10</li>
+                            <li>Spider pour exploration automatique</li>
+                            <li>Tests d'injection et XSS</li>
+                        </ul>
+                        <a href="/network-security" class="btn btn-warning">Utiliser ZAP</a>
+                    `
+                },
+                'wifi': {
+                    title: 'WiFi Security',
+                    content: `
+                        <p><strong>Description:</strong> Outils d'audit de securite des reseaux sans-fil</p>
+                        <p><strong>Fonctionnalites:</strong></p>
+                        <ul>
+                            <li>Scan des reseaux WiFi environnants</li>
+                            <li>Analyse des protocoles de chiffrement</li>
+                            <li>Detection de reseaux vulnerables</li>
+                            <li>Mode monitor pour capture</li>
+                        </ul>
+                        <a href="/network-security" class="btn btn-success">Utiliser WiFi Scanner</a>
+                    `
+                },
+                'wireshark': {
+                    title: 'Wireshark',
+                    content: `
+                        <p><strong>Description:</strong> Analyseur de protocoles reseau</p>
+                        <p><strong>Fonctionnalites:</strong></p>
+                        <ul>
+                            <li>Capture de trafic reseau en temps reel</li>
+                            <li>Analyse detaillee des protocoles</li>
+                            <li>Filtrage et recherche avances</li>
+                            <li>Detection d'activites suspectes</li>
+                        </ul>
+                        <a href="/network-security" class="btn btn-info">Utiliser Wireshark</a>
+                    `
+                }
+            };
+
+            const info = moduleInfo[moduleType];
+            if (info) {
+                document.getElementById('moduleTitle').textContent = info.title;
+                document.getElementById('moduleContent').innerHTML = info.content;
+                document.getElementById('moduleInfo').style.display = 'block';
+            }
+        }
+
+        // Actualiser les resultats
+        function refreshResults() {
+            loadRecentScans();
+            updateTime();
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTime();
+            loadRecentScans();
+            setInterval(updateTime, 30000); // Mettre a jour toutes les 30 secondes
+            setInterval(loadRecentScans, 60000); // Actualiser les scans toutes les minutes
+        });
+    </script>
+</body>
+</html>
