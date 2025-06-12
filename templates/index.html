@@ -84,14 +84,14 @@
                     </div>
                 </div>
 
-                <!-- Module WiFi -->
+                <!-- Module WiFi / Aircrack -->
                 <div class="card module-card" onclick="showModuleInfo('wifi')">
                     <div class="card-body">
                         <div class="d-flex align-items-center">
                             <i class="fas fa-wifi fa-2x text-success me-3"></i>
                             <div>
-                                <h6 class="card-title mb-1">WiFi Security</h6>
-                                <small class="text-muted">Analyse reseaux WiFi</small>
+                                <h6 class="card-title mb-1">Aircrack-ng WiFi</h6>
+                                <small class="text-muted">Audit securite WiFi</small>
                             </div>
                         </div>
                     </div>
@@ -329,7 +329,8 @@
             const icons = {
                 'Nmap': 'fas fa-search text-primary',
                 'OWASP ZAP': 'fas fa-globe text-warning',
-                'Aircrack': 'fas fa-wifi text-success',
+                'Aircrack-ng (Sécurité Wifi)': 'fas fa-wifi text-success',
+                'WiFi Scanner': 'fas fa-wifi text-success',
                 'Wireshark': 'fas fa-chart-line text-info'
             };
             return icons[tool] || 'fas fa-cog';
@@ -367,17 +368,19 @@
                     `
                 },
                 'wifi': {
-                    title: 'WiFi Security',
+                    title: 'Aircrack-ng WiFi Security',
                     content: `
-                        <p><strong>Description:</strong> Outils d'audit de securite des reseaux sans-fil</p>
+                        <p><strong>Description:</strong> Suite d'outils pour l'audit de securite des reseaux sans-fil</p>
                         <p><strong>Fonctionnalites:</strong></p>
                         <ul>
                             <li>Scan des reseaux WiFi environnants</li>
                             <li>Analyse des protocoles de chiffrement</li>
                             <li>Detection de reseaux vulnerables</li>
                             <li>Mode monitor pour capture</li>
+                            <li>Tests de securite WEP/WPA</li>
+                            <li>Analyse de la force des mots de passe</li>
                         </ul>
-                        <a href="/aircrack class="btn btn-success">Utiliser WiFi Scanner</a>
+                        <a href="/aircrack" class="btn btn-success">Utiliser Aircrack-ng</a>
                     `
                 },
                 'wireshark': {
