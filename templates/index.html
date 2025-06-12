@@ -110,6 +110,19 @@
                     </div>
                 </div>
 
+                <!-- Module Hydra - NOUVEAU avec redirection directe -->
+                <div class="card module-card" onclick="window.location.href='{{ url_for('hydra_page') }}'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-key fa-2x text-danger me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Hydra Attack Tool</h6>
+                                <small class="text-muted">Test force brute</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <hr>
                 
                 <!-- Actions rapides -->
@@ -290,6 +303,8 @@
                                 <div class="text-muted small">
                                     ${result.target ? 'Cible: ' + result.target : ''}
                                     ${result.interface ? 'Interface: ' + result.interface : ''}
+                                    ${result.service ? 'Service: ' + result.service : ''}
+                                    ${result.username ? 'User: ' + result.username : ''}
                                 </div>
                                 <div class="text-muted small">
                                     <i class="fas fa-clock"></i> ${result.timestamp}
@@ -331,7 +346,11 @@
                 'OWASP ZAP': 'fas fa-globe text-warning',
                 'Aircrack-ng (Sécurité Wifi)': 'fas fa-wifi text-success',
                 'WiFi Scanner': 'fas fa-wifi text-success',
-                'Wireshark': 'fas fa-chart-line text-info'
+                'Wireshark': 'fas fa-chart-line text-info',
+                'Hydra': 'fas fa-key text-danger',
+                'Hydra SSH': 'fas fa-key text-danger',
+                'Hydra FTP': 'fas fa-key text-danger',
+                'Hydra HTTP': 'fas fa-key text-danger'
             };
             return icons[tool] || 'fas fa-cog';
         }
@@ -395,6 +414,26 @@
                             <li>Detection d'activites suspectes</li>
                         </ul>
                         <a href="/wireshark" class="btn btn-info">Utiliser Wireshark</a>
+                    `
+                },
+                'hydra': {
+                    title: 'Hydra Password Attack Tool',
+                    content: `
+                        <p><strong>Description:</strong> Outil de force brute pour tester la robustesse des mots de passe</p>
+                        <p><strong>Fonctionnalites:</strong></p>
+                        <ul>
+                            <li>Attaques par force brute multi-protocoles</li>
+                            <li>Support SSH, FTP, HTTP, RDP, Telnet</li>
+                            <li>Dictionnaires de mots de passe personnalises</li>
+                            <li>Test d'identifiants par defaut</li>
+                            <li>Attaques paralleles optimisees</li>
+                            <li>Detection de vulnerabilites d'authentification</li>
+                        </ul>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Attention:</strong> Utilisez uniquement sur vos propres systemes ou avec autorisation explicite.
+                        </div>
+                        <a href="/hydra" class="btn btn-danger">Utiliser Hydra</a>
                     `
                 }
             };

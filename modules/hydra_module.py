@@ -5,10 +5,14 @@ import random
 import urllib.parse
 from datetime import datetime
 import os
+import socket
 
 def run_hydra_attack(target, service, username, attack_mode, port=None):
     """Lance une attaque Hydra avec le mode spécifié"""
     try:
+        # Nettoyer l'URL si c'est une URL complète
+        target = clean_target_url(target)
+        
         # Générer la liste de mots de passe selon le mode
         password_list = generate_password_list(attack_mode)
         
@@ -16,10 +20,28 @@ def run_hydra_attack(target, service, username, attack_mode, port=None):
         cmd = build_hydra_command(target, service, username, password_list, port)
         
         # Simuler l'attaque (en réalité, exécuter Hydra)
-        return simulate_hydra_attack(target, service, username, attack_mode, password_list)
+        return simulate_hydra_attack(target, service, username, attack_mode, password_list, port)
         
     except Exception as e:
         return f"Erreur Hydra : {e}"
+
+def clean_target_url(target):
+    """Nettoie l'URL pour extraire seulement le hostname/IP"""
+    # Supprimer http:// ou https:// si présent
+    if target.startswith('http://'):
+        target = target[7:]
+    elif target.startswith('https://'):
+        target = target[8:]
+    
+    # Supprimer tout ce qui suit le premier /
+    if '/' in target:
+        target = target.split('/')[0]
+    
+    # Supprimer le port si spécifié dans l'URL
+    if ':' in target:
+        target = target.split(':')[0]
+    
+    return target
 
 def build_hydra_command(target, service, username, password_list, port=None):
     """Construit la commande Hydra sécurisée"""
@@ -58,7 +80,7 @@ def build_hydra_command(target, service, username, password_list, port=None):
     
     return cmd
 
-def simulate_hydra_attack(target, service, username, attack_mode, password_list):
+def simulate_hydra_attack(target, service, username, attack_mode, password_list, port=None):
     """Simule une attaque Hydra avec des résultats réalistes"""
     start_time = time.time()
     
@@ -77,7 +99,7 @@ def simulate_hydra_attack(target, service, username, attack_mode, password_list)
     actual_duration = int(end_time - start_time)
     
     # Vérifier si la cible est accessible
-    target_status, is_accessible = check_target_accessibility(target, service)
+    target_status, is_accessible = check_target_accessibility(target, service, port)
     
     if not is_accessible:
         return generate_unreachable_report(target, service, username, target_status, actual_duration)
@@ -85,36 +107,44 @@ def simulate_hydra_attack(target, service, username, attack_mode, password_list)
     # Simuler les résultats d'attaque
     return generate_attack_results(target, service, username, attack_mode, password_list, actual_duration)
 
-def check_target_accessibility(target, service):
+def check_target_accessibility(target, service, port=None):
     """Vérifie si la cible est accessible sur le port du service"""
-    import socket
-    
     service_ports = {
         'ssh': 22, 'ftp': 21, 'http-get': 80, 
         'rdp': 3389, 'telnet': 23, 'smtp': 25, 'pop3': 110
     }
     
-    port = service_ports.get(service, 22)
+    # Utiliser le port spécifié ou le port par défaut du service
+    test_port = port if port else service_ports.get(service, 22)
     
     try:
+        # Résoudre le nom d'hôte d'abord
+        try:
+            resolved_ip = socket.gethostbyname(target)
+        except socket.gaierror:
+            return "Nom d'hôte non résolu", False
+        
+        # Tester la connexion
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5)
+        sock.settimeout(10)  # Timeout de 10 secondes
         
-        # Résoudre le nom d'hôte si nécessaire
-        if target in ['localhost', '127.0.0.1']:
-            result = sock.connect_ex(('127.0.0.1', port))
-        else:
-            result = sock.connect_ex((target, port))
-        
+        result = sock.connect_ex((target, test_port))
         sock.close()
         
         if result == 0:
-            return f"Port {port} ouvert", True
+            return f"Port {test_port} ouvert", True
         else:
-            return f"Port {port} fermé ou filtré", False
+            # Pour les sites web, tester aussi le port 443 si c'est du HTTP
+            if service == 'http-get' and test_port == 80:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(10)
+                result_https = sock.connect_ex((target, 443))
+                sock.close()
+                if result_https == 0:
+                    return f"Port 443 ouvert (HTTPS)", True
             
-    except socket.gaierror:
-        return "Nom d'hôte non résolu", False
+            return f"Port {test_port} fermé ou filtré", False
+            
     except Exception as e:
         return f"Erreur de connexion: {str(e)[:50]}", False
 
@@ -160,6 +190,10 @@ def calculate_success_probability(target, service, username, attack_mode):
     if username.lower() in ['guest', 'test', 'demo']:
         base_probability += 0.15
     
+    # Bonus pour les cibles de test connues
+    if any(test_site in target.lower() for test_site in ['testphp', 'vulnweb', 'demo', 'test']):
+        base_probability += 0.25
+    
     # Bonus pour les cibles locales (souvent moins sécurisées)
     if target in ['localhost', '127.0.0.1', '192.168.1.1']:
         base_probability += 0.2
@@ -178,11 +212,16 @@ def choose_realistic_password(password_list, username, target):
     
     for password in password_list[:10]:  # Tester les 10 premiers
         if (password.lower() == username.lower() or 
-            password in ['password', '123456', 'admin', 'root']):
+            password in ['password', '123456', 'admin', 'root', 'test']):
             likely_passwords.append(password)
     
     if likely_passwords:
         return random.choice(likely_passwords)
+    
+    # Pour les sites de test, utiliser des mots de passe réalistes
+    if any(test_site in target.lower() for test_site in ['testphp', 'vulnweb', 'demo']):
+        test_passwords = ['test', 'admin', 'password', 'demo', '123456']
+        return random.choice(test_passwords)
     
     # Sinon, prendre un des premiers mots de passe de la liste
     return password_list[random.randint(0, min(len(password_list)-1, 5))]
@@ -427,6 +466,7 @@ def get_service_port(service):
 def hydra_ssh_attack(target, username, password_file=None):
     """Attaque SSH spécialisée"""
     try:
+        target = clean_target_url(target)
         if password_file is None:
             passwords = generate_password_list("common_passwords")
             password_file = create_temp_password_file(passwords)
@@ -448,6 +488,7 @@ def hydra_ssh_attack(target, username, password_file=None):
 def hydra_ftp_attack(target, username, password_file=None):
     """Attaque FTP spécialisée"""
     try:
+        target = clean_target_url(target)
         if password_file is None:
             passwords = generate_password_list("default_credentials")
             password_file = create_temp_password_file(passwords)
@@ -469,6 +510,7 @@ def hydra_ftp_attack(target, username, password_file=None):
 def hydra_http_attack(target, username, path="/"):
     """Attaque HTTP Basic Auth"""
     try:
+        target = clean_target_url(target)
         passwords = generate_password_list("weak_passwords")
         password_file = create_temp_password_file(passwords)
         

@@ -16,6 +16,7 @@ from modules.nmap_module import run_nmap_scan, nmap_quick_scan, nmap_ping_sweep
 from modules.aircrack_module import scan_wifi_networks, monitor_mode_start, monitor_mode_stop, get_wifi_interfaces
 from modules.wireshark_module import capture_traffic, analyze_pcap_file, get_network_interfaces, filter_traffic
 from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, zap_active_scan, zap_quick_scan, simulate_zap_scan
+from modules.hydra_module import run_hydra_attack, hydra_ssh_attack, hydra_ftp_attack, hydra_http_attack, get_hydra_services, generate_username_list
 
 app = Flask(__name__)
 app.secret_key = 'cybersec_toolbox_2024'
@@ -53,6 +54,11 @@ def wireshark_page():
 def aircrack_page():
     """Page dédiée Aircrack-ng WiFi Scanner"""
     return render_template('aircrack.html')
+
+@app.route('/hydra')
+def hydra_page():
+    """Page dédiée Hydra Password Attack Tool"""
+    return render_template('hydra.html')
 
 # ====== ROUTES NMAP ======
 @app.route('/scan/nmap', methods=['POST'])
@@ -193,6 +199,288 @@ def nmap_progress(scan_id):
         }
     
     return jsonify(response)
+
+# ====== ROUTES HYDRA ======
+@app.route('/scan/hydra', methods=['POST'])
+def hydra_attack():
+    """Endpoint pour attaque Hydra - Support AJAX"""
+    target = request.form.get('target')
+    service = request.form.get('service', 'ssh')
+    username = request.form.get('username')
+    attack_mode = request.form.get('attack_mode', 'default_credentials')
+    port = request.form.get('port')
+    
+    if not target:
+        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+            return jsonify({'error': 'Veuillez spécifier une cible'}), 400
+        else:
+            flash('Veuillez spécifier une cible', 'error')
+            return redirect(url_for('hydra_page'))
+    
+    if not username:
+        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+            return jsonify({'error': 'Veuillez spécifier un nom d\'utilisateur'}), 400
+        else:
+            flash('Veuillez spécifier un nom d\'utilisateur', 'error')
+            return redirect(url_for('hydra_page'))
+    
+    attack_id = f"hydra_{int(time.time())}"
+    scan_status[attack_id] = {
+        'status': 'running', 
+        'tool': 'Hydra', 
+        'target': target,
+        'service': service,
+        'username': username,
+        'attack_mode': attack_mode,
+        'port': port,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_attack():
+        try:
+            # Ajouter un délai pour simuler une attaque réelle
+            time.sleep(2)
+            result = run_hydra_attack(target, service, username, attack_mode, port)
+            scan_results[attack_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'Hydra',
+                'target': target,
+                'service': service,
+                'username': username,
+                'attack_mode': attack_mode,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'completed'
+        except Exception as e:
+            scan_results[attack_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'Hydra',
+                'target': target,
+                'service': service,
+                'username': username,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_attack)
+    thread.start()
+    
+    # Réponse différente selon le type de requête
+    if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+        # Requête AJAX
+        return jsonify({
+            'success': True,
+            'attack_id': attack_id, 
+            'message': f'Attaque Hydra démarrée sur {target}:{service}',
+            'status': 'running'
+        })
+    else:
+        # Requête normale
+        flash(f'Attaque Hydra démarrée sur {target}:{service}', 'success')
+        return redirect(url_for('hydra_page'))
+
+@app.route('/scan/hydra/progress/<attack_id>')
+def hydra_progress(attack_id):
+    """API pour suivre le progrès d'une attaque Hydra"""
+    if attack_id not in scan_status:
+        return jsonify({'error': 'Attaque non trouvée'}), 404
+    
+    status = scan_status[attack_id]
+    result = scan_results.get(attack_id)
+    
+    response = {
+        'attack_id': attack_id,
+        'status': status['status'],
+        'tool': status['tool'],
+        'target': status.get('target'),
+        'service': status.get('service'),
+        'username': status.get('username'),
+        'attack_mode': status.get('attack_mode'),
+        'start_time': status.get('start_time')
+    }
+    
+    if result:
+        response['result'] = {
+            'success': result['success'],
+            'output': result.get('output', ''),
+            'error': result.get('error', ''),
+            'timestamp': result.get('timestamp')
+        }
+    
+    return jsonify(response)
+
+@app.route('/hydra/services/api')
+def hydra_services_api():
+    """API pour récupérer les services supportés par Hydra"""
+    try:
+        services = get_hydra_services()
+        return jsonify({'success': True, 'services': services})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/hydra/usernames/api')
+def hydra_usernames_api():
+    """API pour récupérer la liste des utilisateurs communs"""
+    try:
+        usernames = generate_username_list()
+        return jsonify({'success': True, 'usernames': usernames})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/scan/hydra/ssh', methods=['POST'])
+def hydra_ssh():
+    """Attaque SSH spécialisée avec Hydra"""
+    target = request.form.get('target')
+    username = request.form.get('username')
+    
+    if not target or not username:
+        return jsonify({'error': 'Cible et nom d\'utilisateur requis'}), 400
+    
+    attack_id = f"hydra_ssh_{int(time.time())}"
+    scan_status[attack_id] = {
+        'status': 'running', 
+        'tool': 'Hydra SSH', 
+        'target': target,
+        'username': username,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_ssh_attack():
+        try:
+            result = hydra_ssh_attack(target, username)
+            scan_results[attack_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'Hydra SSH',
+                'target': target,
+                'username': username,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'completed'
+        except Exception as e:
+            scan_results[attack_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'Hydra SSH',
+                'target': target,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_ssh_attack)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'attack_id': attack_id, 
+        'message': f'Attaque SSH Hydra démarrée sur {target}',
+        'status': 'running'
+    })
+
+@app.route('/scan/hydra/ftp', methods=['POST'])
+def hydra_ftp():
+    """Attaque FTP spécialisée avec Hydra"""
+    target = request.form.get('target')
+    username = request.form.get('username')
+    
+    if not target or not username:
+        return jsonify({'error': 'Cible et nom d\'utilisateur requis'}), 400
+    
+    attack_id = f"hydra_ftp_{int(time.time())}"
+    scan_status[attack_id] = {
+        'status': 'running', 
+        'tool': 'Hydra FTP', 
+        'target': target,
+        'username': username,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_ftp_attack():
+        try:
+            result = hydra_ftp_attack(target, username)
+            scan_results[attack_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'Hydra FTP',
+                'target': target,
+                'username': username,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'completed'
+        except Exception as e:
+            scan_results[attack_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'Hydra FTP',
+                'target': target,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_ftp_attack)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'attack_id': attack_id, 
+        'message': f'Attaque FTP Hydra démarrée sur {target}',
+        'status': 'running'
+    })
+
+@app.route('/scan/hydra/http', methods=['POST'])
+def hydra_http():
+    """Attaque HTTP Basic Auth spécialisée avec Hydra"""
+    target = request.form.get('target')
+    username = request.form.get('username')
+    path = request.form.get('path', '/')
+    
+    if not target or not username:
+        return jsonify({'error': 'Cible et nom d\'utilisateur requis'}), 400
+    
+    attack_id = f"hydra_http_{int(time.time())}"
+    scan_status[attack_id] = {
+        'status': 'running', 
+        'tool': 'Hydra HTTP', 
+        'target': target,
+        'username': username,
+        'path': path,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_http_attack():
+        try:
+            result = hydra_http_attack(target, username, path)
+            scan_results[attack_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'Hydra HTTP',
+                'target': target,
+                'username': username,
+                'path': path,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'completed'
+        except Exception as e:
+            scan_results[attack_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'Hydra HTTP',
+                'target': target,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[attack_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_http_attack)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'attack_id': attack_id, 
+        'message': f'Attaque HTTP Hydra démarrée sur {target}',
+        'status': 'running'
+    })
 
 # ====== ROUTES AIRCRACK-NG ======
 @app.route('/scan/wifi', methods=['POST'])
@@ -798,7 +1086,8 @@ def health_check():
             'nmap': True,
             'wireshark': True,
             'owasp_zap': True,
-            'aircrack_ng': True
+            'aircrack_ng': True,
+            'hydra': True
         }
     })
 
@@ -950,6 +1239,7 @@ if __name__ == '__main__':
     print("   • OWASP ZAP (Test applications web)")
     print("   • Wireshark (Analyse trafic réseau)")
     print("   • Aircrack-ng (Sécurité WiFi)")
+    print("   • Hydra (Test robustesse mots de passe)")
     print(f"🌐 Application accessible sur: http://127.0.0.1:5000")
     print("⚠️  Utilisez uniquement sur vos propres systèmes ou avec autorisation!")
     
