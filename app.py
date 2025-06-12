@@ -5,17 +5,18 @@ Cybersecurity Toolbox - Application Flask
 Projet Scolaire - Le partenaire
 """
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, Response
 import threading
 import time
 import os
 from datetime import datetime
+from io import BytesIO
 
 # Import des modules
 from modules.nmap_module import run_nmap_scan, nmap_quick_scan, nmap_ping_sweep
 from modules.aircrack_module import scan_wifi_networks, monitor_mode_start, monitor_mode_stop
 from modules.wireshark_module import capture_traffic, analyze_pcap_file, get_network_interfaces, filter_traffic
-from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, simulate_zap_scan
+from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, zap_active_scan, zap_quick_scan
 
 app = Flask(__name__)
 app.secret_key = 'cybersec_toolbox_2024'
@@ -24,6 +25,7 @@ app.secret_key = 'cybersec_toolbox_2024'
 scan_results = {}
 scan_status = {}
 
+# ====== ROUTES PRINCIPALES ======
 @app.route('/')
 def index():
     """Page d'accueil"""
@@ -49,6 +51,11 @@ def wireshark_page():
     """Page dédiée Wireshark Analyzer"""
     return render_template('wireshark.html')
 
+@app.route('/aircrack')
+def aircrack_page():
+    """Page dédiée Aircrack-ng WiFi Scanner"""
+    return render_template('aircrack.html')
+
 # ====== ROUTES NMAP ======
 @app.route('/scan/nmap', methods=['POST'])
 def nmap_scan():
@@ -57,7 +64,7 @@ def nmap_scan():
     scan_type = request.form.get('scan_type', 'basic')
     
     if not target:
-        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
             # Requête AJAX
             return jsonify({'error': 'Veuillez spécifier une cible'}), 400
         else:
@@ -162,7 +169,6 @@ def nmap_quick():
         'status': 'running'
     })
 
-# ====== NOUVELLE ROUTE POUR SUIVRE LE PROGRES ======
 @app.route('/scan/nmap/progress/<scan_id>')
 def nmap_progress(scan_id):
     """API pour suivre le progrès d'un scan Nmap"""
@@ -197,7 +203,12 @@ def wifi_scan():
     interface = request.form.get('interface', 'wlan0')
     
     scan_id = f"wifi_{int(time.time())}"
-    scan_status[scan_id] = {'status': 'running', 'tool': 'WiFi Scanner', 'interface': interface}
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'Aircrack-ng (Sécurité Wifi)', 
+        'interface': interface,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
     
     def run_scan():
         try:
@@ -205,7 +216,7 @@ def wifi_scan():
             scan_results[scan_id] = {
                 'success': True,
                 'output': result,
-                'tool': 'WiFi Scanner',
+                'tool': 'Aircrack-ng (Sécurité Wifi)',
                 'interface': interface,
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
@@ -214,7 +225,7 @@ def wifi_scan():
             scan_results[scan_id] = {
                 'success': False,
                 'error': str(e),
-                'tool': 'WiFi Scanner',
+                'tool': 'Aircrack-ng (Sécurité Wifi)',
                 'interface': interface,
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
@@ -224,7 +235,7 @@ def wifi_scan():
     thread.start()
     
     flash(f'Scan WiFi démarré sur {interface}', 'success')
-    return redirect(url_for('network_security'))
+    return redirect(url_for('aircrack_page'))
 
 @app.route('/wifi/monitor/start', methods=['POST'])
 def start_monitor_mode():
@@ -349,11 +360,13 @@ def wireshark_interfaces_api():
 def analyze_pcap():
     """Analyser un fichier PCAP uploadé"""
     if 'pcap_file' not in request.files:
-        return jsonify({'error': 'Aucun fichier PCAP fourni'}), 400
+        flash('Aucun fichier PCAP fourni', 'error')
+        return redirect(url_for('wireshark_page'))
     
     file = request.files['pcap_file']
     if file.filename == '':
-        return jsonify({'error': 'Nom de fichier vide'}), 400
+        flash('Nom de fichier vide', 'error')
+        return redirect(url_for('wireshark_page'))
     
     if file and (file.filename.endswith('.pcap') or file.filename.endswith('.pcapng')):
         # Créer le dossier temp s'il n'existe pas
@@ -430,8 +443,6 @@ def download_wireshark_result(scan_id):
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
         from reportlab.lib import colors
-        from io import BytesIO
-        import tempfile
         
         # Créer un buffer en mémoire
         buffer = BytesIO()
@@ -518,7 +529,6 @@ def download_wireshark_result(scan_id):
         buffer.close()
         
         # Créer la réponse de téléchargement
-        from flask import Response
         response = Response(
             pdf_data,
             mimetype='application/pdf',
@@ -545,7 +555,6 @@ Résultats:
 NOTE: Pour générer des rapports PDF, installez reportlab: pip install reportlab
 """
         
-        from flask import Response
         response = Response(
             content,
             mimetype='text/plain',
@@ -593,8 +602,12 @@ def zap_scan():
                 result = run_zap_baseline_scan(target_url)
             elif scan_type == 'spider':
                 result = zap_spider_scan(target_url)
+            elif scan_type == 'active':
+                result = zap_active_scan(target_url)
+            elif scan_type == 'quick':
+                result = zap_quick_scan(target_url)
             else:
-                result = simulate_zap_scan(target_url)
+                result = run_zap_baseline_scan(target_url)  # fallback
             
             scan_results[scan_id] = {
                 'success': True,
@@ -632,7 +645,6 @@ def zap_scan():
         flash(f'Scan OWASP ZAP démarré sur {target_url}', 'success')
         return redirect(url_for('zap_page'))
 
-# ====== NOUVELLE ROUTE POUR SUIVRE LE PROGRES ZAP ======
 @app.route('/scan/zap/progress/<scan_id>')
 def zap_progress(scan_id):
     """API pour suivre le progrès d'un scan ZAP"""
@@ -673,6 +685,21 @@ def all_results():
     """Page de tous les résultats"""
     return render_template('all_results.html', results=scan_results)
 
+@app.route('/scan/<scan_id>')
+def view_scan_result(scan_id):
+    """Afficher un résultat de scan spécifique"""
+    if scan_id not in scan_results:
+        flash('Résultat de scan non trouvé', 'error')
+        return redirect(url_for('all_results'))
+    
+    result = scan_results[scan_id]
+    status = scan_status.get(scan_id, {})
+    
+    return render_template('scan_result.html', 
+                         scan_id=scan_id, 
+                         result=result, 
+                         status=status)
+
 @app.route('/api/result/<scan_id>')
 def get_result_api(scan_id):
     """API pour récupérer un résultat"""
@@ -702,8 +729,28 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'active_scans': len([s for s in scan_status.values() if s['status'] == 'running']),
-        'total_results': len(scan_results)
+        'total_results': len(scan_results),
+        'available_modules': ['Nmap', 'OWASP ZAP', 'Wireshark', 'Aircrack-ng']
     })
 
+# ====== GESTION D'ERREURS ======
+@app.errorhandler(404)
+def not_found(error):
+    """Page d'erreur 404"""
+    return render_template('error.html', 
+                         error_code=404, 
+                         error_message="Page non trouvée"), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Page d'erreur 500"""
+    return render_template('error.html', 
+                         error_code=500, 
+                         error_message="Erreur interne du serveur"), 500
+
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    # Créer le dossier temp s'il n'existe pas
+    os.makedirs('temp', exist_ok=True)
+    
+    # Démarrer l'application
+    app.run(debug=True, host='127.0.0.1', port=5000, threaded=True)
