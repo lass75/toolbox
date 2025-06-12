@@ -168,27 +168,131 @@
             margin-bottom: 15px;
         }
 
-        .form-loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.8);
-            display: none;
-            align-items: center;
-            justify-content: center;
+        /* Console Styles */
+        .console-container {
+            background: white;
             border-radius: 15px;
-            z-index: 100;
+            padding: 20px;
+            margin-top: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .console-terminal {
+            background: #1e1e1e;
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            height: 400px;
+            overflow-y: auto;
+            border: 2px solid #333;
+            position: relative;
+        }
+
+        .console-line {
+            margin-bottom: 5px;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .console-prompt {
+            color: #00ff00;
+        }
+
+        .console-output {
+            color: #ffffff;
+        }
+
+        .console-error {
+            color: #ff4444;
+        }
+
+        .console-success {
+            color: #00ff00;
+        }
+
+        .console-warning {
+            color: #ffaa00;
+        }
+
+        .progress-bar-container {
+            margin: 15px 0;
+            display: none;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-idle { background-color: #6c757d; }
+        .status-running { 
+            background-color: #28a745; 
+            animation: pulse 1.5s infinite;
+        }
+        .status-completed { background-color: #17a2b8; }
+        .status-error { background-color: #dc3545; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #28a745;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .console-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Status du scan avec spinner */
+        .scan-status-container {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e8;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
         }
 
         .loading-message {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            border-left: 4px solid #28a745;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         @media (max-width: 768px) {
@@ -202,6 +306,11 @@
             
             .scan-form {
                 padding: 20px;
+            }
+
+            .console-terminal {
+                height: 300px;
+                font-size: 12px;
             }
         }
     </style>
@@ -275,15 +384,7 @@
                                     <i class="fas fa-wifi text-success"></i> Scanner les Réseaux WiFi
                                 </h3>
 
-                                <!-- Overlay de chargement pour le formulaire -->
-                                <div class="form-loading-overlay" id="formLoadingOverlay">
-                                    <div class="loading-message">
-                                        <i class="fas fa-hourglass-start text-success"></i>
-                                        <strong class="ms-2">Démarrage du scan WiFi...</strong>
-                                    </div>
-                                </div>
-
-                                <form id="aircrackForm" action="{{ url_for('wifi_scan') }}" method="POST">
+                                <form id="aircrackForm">
                                     <!-- Interface réseau -->
                                     <div class="mb-4">
                                         <label for="interface" class="form-label h5">
@@ -307,7 +408,7 @@
 
                                     <!-- Boutons d'action -->
                                     <div class="d-flex gap-3 justify-content-end">
-                                        <button type="reset" class="btn btn-outline-secondary btn-lg">
+                                        <button type="reset" class="btn btn-outline-secondary btn-lg" onclick="resetForm()">
                                             <i class="fas fa-undo"></i> Reset
                                         </button>
                                         <button type="button" class="btn btn-warning btn-lg" onclick="quickScan()">
@@ -316,6 +417,17 @@
                                         <button type="submit" class="btn btn-success btn-lg" id="startScanBtn">
                                             <i class="fas fa-play"></i> Démarrer Scan WiFi
                                         </button>
+                                        <button type="button" class="btn btn-danger btn-lg" id="stopScanBtn" style="display: none;" onclick="stopScan()">
+                                            <i class="fas fa-stop"></i> Arrêter
+                                        </button>
+                                    </div>
+
+                                    <!-- Status du scan avec spinner -->
+                                    <div id="scanStatusContainer" class="scan-status-container">
+                                        <div class="loading-message">
+                                            <span class="loading-spinner" id="loadingSpinner"></span>
+                                            <span id="scanStatusMessage">Démarrage du scan WiFi...</span>
+                                        </div>
                                     </div>
                                 </form>
                             </div>
@@ -379,6 +491,47 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Console de scan -->
+                <div class="console-container" id="consoleContainer">
+                    <div class="console-header">
+                        <h4>
+                            <i class="fas fa-terminal text-success"></i>
+                            Console Aircrack-ng
+                            <span class="status-indicator status-idle" id="statusIndicator"></span>
+                            <span id="statusText">Prêt</span>
+                        </h4>
+                        <div id="scanIdContainer" style="display: none;">
+                            <small class="text-muted">Scan ID: <span id="currentScanId">-</span></small>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar-container" id="progressContainer">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                 role="progressbar" style="width: 0%" id="progressBar">
+                                <span id="progressText">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="console-terminal" id="consoleTerminal">
+                        <div class="console-line console-prompt">user@cybertoolbox:~$ Aircrack-ng Console prêt</div>
+                        <div class="console-line console-output">Configurez votre scan WiFi et cliquez sur "Démarrer Scan WiFi"</div>
+                    </div>
+
+                    <div class="console-actions">
+                        <button class="btn btn-outline-primary btn-sm" onclick="clearConsole()">
+                            <i class="fas fa-trash"></i> Effacer Console
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="exportResults()">
+                            <i class="fas fa-download"></i> Exporter Résultats
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="copyResults()">
+                            <i class="fas fa-copy"></i> Copier
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Sidebar -->
@@ -407,9 +560,12 @@
                         <button class="btn btn-outline-info btn-sm" onclick="checkInterfaces()">
                             <i class="fas fa-list"></i> Lister Interfaces
                         </button>
-                        <button class="btn btn-outline-warning btn-sm" onclick="showHelp()">
-                            <i class="fas fa-question-circle"></i> Aide
-                        </button>
+                        <a href="{{ url_for('all_results') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-list"></i> Voir tous les résultats
+                        </a>
+                        <a href="{{ url_for('health_check') }}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-heartbeat"></i> État du système
+                        </a>
                     </div>
                 </div>
 
@@ -427,6 +583,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
     <script>
+        let currentScanId = null;
+        let scanInterval = null;
+
         // Fonctions utilitaires
         function selectInterface(interfaceName) {
             document.getElementById('interface').value = interfaceName;
@@ -434,34 +593,323 @@
 
         function quickScan() {
             selectInterface('wlan0');
-            document.getElementById('aircrackForm').submit();
+            startScan();
         }
 
         function checkInterfaces() {
             alert('Fonction à implémenter : Vérification des interfaces WiFi disponibles');
         }
 
-        function showHelp() {
-            alert('Aide Aircrack-ng :\n\n1. Sélectionnez une interface WiFi\n2. Lancez le scan\n3. Analysez les résultats\n\nAttention : Utilisez uniquement sur vos propres réseaux !');
+        function resetForm() {
+            document.getElementById('interface').value = '';
+            updateStatus('idle', 'Prêt');
+            document.getElementById('currentScanId').textContent = '-';
         }
 
         // Gestionnaire de soumission du formulaire
         document.getElementById('aircrackForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startScan();
+        });
+
+        // Démarrer un scan
+        function startScan() {
             const interface = document.getElementById('interface').value;
             
             if (!interface) {
-                e.preventDefault();
                 alert('Veuillez sélectionner une interface WiFi');
                 return;
             }
 
-            // Afficher l'overlay de chargement discret
-            document.getElementById('formLoadingOverlay').style.display = 'flex';
+            // Mettre à jour l'interface
+            document.getElementById('startScanBtn').style.display = 'none';
+            document.getElementById('stopScanBtn').style.display = 'inline-block';
             
-            // Désactiver le bouton pour éviter les double-clics
-            document.getElementById('startScanBtn').disabled = true;
+            // Afficher le statut avec spinner
+            document.getElementById('scanStatusContainer').style.display = 'block';
+            document.getElementById('scanStatusMessage').textContent = `Démarrage du scan WiFi sur ${interface}...`;
             
-            // Le formulaire se soumet normalement après ça
+            updateStatus('running', 'Démarrage du scan...');
+
+            // Afficher la console
+            document.getElementById('consoleContainer').style.display = 'block';
+            document.getElementById('consoleContainer').scrollIntoView({ behavior: 'smooth' });
+
+            // Effacer la console
+            clearConsole();
+
+            // Ajouter les informations de démarrage
+            addConsoleMessage('prompt', `user@cybertoolbox:~$ airodump-ng ${interface}`);
+            addConsoleMessage('output', `Démarrage du scan WiFi sur l'interface ${interface}`);
+            addConsoleMessage('output', `Heure de début: ${new Date().toLocaleString()}`);
+            addConsoleMessage('output', '─'.repeat(50));
+
+            // Démarrer le scan via AJAX
+            const formData = new FormData();
+            formData.append('interface', interface);
+
+            fetch('/scan/wifi', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentScanId = data.scan_id;
+                    document.getElementById('currentScanId').textContent = currentScanId;
+                    
+                    // Mettre à jour le message de statut
+                    document.getElementById('scanStatusMessage').textContent = `Scan WiFi en cours sur ${interface}...`;
+                    
+                    addConsoleMessage('success', data.message);
+                    
+                    // Démarrer le suivi du progrès réel
+                    startProgressPolling();
+                } else {
+                    addConsoleMessage('error', data.error || 'Erreur lors du démarrage');
+                    updateStatus('error', 'Erreur');
+                    hideScanStatus();
+                    resetInterface();
+                }
+            })
+            .catch(error => {
+                addConsoleMessage('error', `Erreur lors du démarrage: ${error.message}`);
+                updateStatus('error', 'Erreur');
+                hideScanStatus();
+                resetInterface();
+            });
+        }
+
+        // Suivre le progrès du scan réel
+        function startProgressPolling() {
+            document.getElementById('progressContainer').style.display = 'block';
+            
+            addConsoleMessage('output', 'Exécution du scan WiFi en cours...');
+            addConsoleMessage('output', 'Recherche des réseaux sans-fil environnants...');
+            
+            scanInterval = setInterval(() => {
+                if (!currentScanId) return;
+                
+                fetch(`/scan/wifi/progress/${currentScanId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'completed') {
+                            clearInterval(scanInterval);
+                            completeScan(data.result);
+                        } else if (data.status === 'error') {
+                            clearInterval(scanInterval);
+                            handleScanError(data.result);
+                        }
+                        // Si status === 'running', continuer à attendre
+                    })
+                    .catch(error => {
+                        addConsoleMessage('error', `Erreur de communication: ${error.message}`);
+                    });
+            }, 3000); // Vérifier toutes les 3 secondes pour WiFi
+        }
+
+        // Terminer le scan avec les vrais résultats
+        function completeScan(result) {
+            updateStatus('completed', 'Scan terminé');
+            
+            // Mettre à jour le message de statut
+            document.getElementById('scanStatusMessage').textContent = 'Scan WiFi terminé avec succès !';
+            
+            addConsoleMessage('output', '─'.repeat(50));
+            addConsoleMessage('success', 'Scan WiFi terminé avec succès !');
+            addConsoleMessage('output', '');
+            
+            if (result && result.output) {
+                // Afficher les vrais résultats du module aircrack-ng
+                const lines = result.output.split('\n');
+                lines.forEach(line => {
+                    if (line.trim()) {
+                        // Colorer les lignes selon le contenu
+                        if (line.includes('⚠️') || line.includes('RISQUE') || line.includes('WEP') || line.includes('OUVERT')) {
+                            addConsoleMessage('warning', line);
+                        } else if (line.includes('✅') || line.includes('SÉCURISÉ')) {
+                            addConsoleMessage('success', line);
+                        } else {
+                            addConsoleMessage('output', line);
+                        }
+                    }
+                });
+            } else {
+                addConsoleMessage('warning', 'Aucun résultat disponible');
+            }
+            
+            addConsoleMessage('output', '');
+            addConsoleMessage('success', `Scan WiFi terminé à ${new Date().toLocaleString()}`);
+            
+            // Masquer le statut et scan ID après completion
+            setTimeout(() => {
+                hideScanStatus();
+                document.getElementById('scanIdContainer').style.display = 'none';
+            }, 3000);
+            
+            resetInterface();
+        }
+
+        // Gérer les erreurs de scan
+        function handleScanError(result) {
+            updateStatus('error', 'Erreur lors du scan');
+            
+            // Mettre à jour le message de statut
+            document.getElementById('scanStatusMessage').textContent = 'Erreur lors du scan WiFi';
+            
+            addConsoleMessage('output', '─'.repeat(50));
+            addConsoleMessage('error', 'Erreur lors du scan WiFi !');
+            
+            if (result && result.error) {
+                addConsoleMessage('error', `Détails: ${result.error}`);
+            }
+            
+            addConsoleMessage('output', '');
+            addConsoleMessage('warning', 'Vérifiez l\'interface et les privilèges, puis réessayez');
+            
+            // Masquer le statut et scan ID après erreur
+            setTimeout(() => {
+                hideScanStatus();
+                document.getElementById('scanIdContainer').style.display = 'none';
+            }, 3000);
+            
+            resetInterface();
+        }
+
+        // Arrêter le scan
+        function stopScan() {
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+            
+            addConsoleMessage('warning', 'Scan WiFi arrêté par l\'utilisateur');
+            updateStatus('error', 'Arrêté');
+            hideScanStatus();
+            resetInterface();
+        }
+
+        // Remettre l'interface à l'état initial
+        function resetInterface() {
+            document.getElementById('startScanBtn').style.display = 'inline-block';
+            document.getElementById('stopScanBtn').style.display = 'none';
+            document.getElementById('progressContainer').style.display = 'none';
+            
+            // Masquer la barre de progression
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+        }
+
+        // Mettre à jour le statut
+        function updateStatus(status, message) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const scanIdContainer = document.getElementById('scanIdContainer');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = message;
+            
+            // Afficher/masquer le scan ID selon le statut
+            if (status === 'running') {
+                scanIdContainer.style.display = 'block';
+            } else {
+                if (status === 'idle') {
+                    scanIdContainer.style.display = 'none';
+                }
+            }
+        }
+
+        // Masquer le statut du scan
+        function hideScanStatus() {
+            document.getElementById('scanStatusContainer').style.display = 'none';
+        }
+
+        // Ajouter un message à la console
+        function addConsoleMessage(type, message) {
+            const terminal = document.getElementById('consoleTerminal');
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            line.textContent = message;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Effacer la console
+        function clearConsole() {
+            const terminal = document.getElementById('consoleTerminal');
+            terminal.innerHTML = '<div class="console-line console-prompt">user@cybertoolbox:~$ Console WiFi effacée</div>';
+        }
+
+        // Exporter les résultats
+        function exportResults() {
+            const terminal = document.getElementById('consoleTerminal');
+            const content = terminal.textContent;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `wifi_scan_${currentScanId || 'results'}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            addConsoleMessage('success', 'Résultats WiFi exportés avec succès');
+        }
+
+        // Copier les résultats
+        function copyResults() {
+            const terminal = document.getElementById('consoleTerminal');
+            const content = terminal.textContent;
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(content).then(() => {
+                    addConsoleMessage('success', 'Résultats WiFi copiés dans le presse-papiers');
+                }).catch(() => {
+                    fallbackCopy(content);
+                });
+            } else {
+                fallbackCopy(content);
+            }
+        }
+
+        // Méthode de copie alternative
+        function fallbackCopy(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                addConsoleMessage('success', 'Résultats WiFi copiés dans le presse-papiers');
+            } catch (err) {
+                addConsoleMessage('error', 'Erreur lors de la copie');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        // Initialisation au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser le statut
+            updateStatus('idle', 'Prêt');
+            
+            // Ajouter un message de bienvenue dans la console
+            setTimeout(() => {
+                addConsoleMessage('output', 'Bienvenue dans l\'interface Aircrack-ng !');
+                addConsoleMessage('output', 'Configurez votre interface WiFi et cliquez sur "Démarrer Scan WiFi"');
+                addConsoleMessage('output', '');
+                addConsoleMessage('warning', 'ATTENTION: Utilisez uniquement sur vos propres réseaux !');
+                addConsoleMessage('output', '');
+            }, 500);
         });
     </script>
 </body>

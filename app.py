@@ -5,18 +5,17 @@ Cybersecurity Toolbox - Application Flask
 Projet Scolaire - Le partenaire
 """
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, Response
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 import threading
 import time
 import os
 from datetime import datetime
-from io import BytesIO
 
 # Import des modules
 from modules.nmap_module import run_nmap_scan, nmap_quick_scan, nmap_ping_sweep
-from modules.aircrack_module import scan_wifi_networks, monitor_mode_start, monitor_mode_stop
+from modules.aircrack_module import scan_wifi_networks, monitor_mode_start, monitor_mode_stop, get_wifi_interfaces
 from modules.wireshark_module import capture_traffic, analyze_pcap_file, get_network_interfaces, filter_traffic
-from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, zap_active_scan, zap_quick_scan
+from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, zap_active_scan, zap_quick_scan, simulate_zap_scan
 
 app = Flask(__name__)
 app.secret_key = 'cybersec_toolbox_2024'
@@ -25,7 +24,6 @@ app.secret_key = 'cybersec_toolbox_2024'
 scan_results = {}
 scan_status = {}
 
-# ====== ROUTES PRINCIPALES ======
 @app.route('/')
 def index():
     """Page d'accueil"""
@@ -64,7 +62,7 @@ def nmap_scan():
     scan_type = request.form.get('scan_type', 'basic')
     
     if not target:
-        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
             # Requête AJAX
             return jsonify({'error': 'Veuillez spécifier une cible'}), 400
         else:
@@ -196,11 +194,18 @@ def nmap_progress(scan_id):
     
     return jsonify(response)
 
-# ====== ROUTES AIRCRACK ======
+# ====== ROUTES AIRCRACK-NG ======
 @app.route('/scan/wifi', methods=['POST'])
 def wifi_scan():
-    """Endpoint pour scan WiFi"""
+    """Endpoint pour scan WiFi - Support AJAX"""
     interface = request.form.get('interface', 'wlan0')
+    
+    if not interface:
+        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+            return jsonify({'error': 'Veuillez spécifier une interface WiFi'}), 400
+        else:
+            flash('Veuillez spécifier une interface WiFi', 'error')
+            return redirect(url_for('aircrack_page'))
     
     scan_id = f"wifi_{int(time.time())}"
     scan_status[scan_id] = {
@@ -212,6 +217,8 @@ def wifi_scan():
     
     def run_scan():
         try:
+            # Délai de simulation pour un scan WiFi
+            time.sleep(3)
             result = scan_wifi_networks(interface)
             scan_results[scan_id] = {
                 'success': True,
@@ -234,22 +241,77 @@ def wifi_scan():
     thread = threading.Thread(target=run_scan)
     thread.start()
     
-    flash(f'Scan WiFi démarré sur {interface}', 'success')
-    return redirect(url_for('aircrack_page'))
+    # Réponse différente selon le type de requête
+    if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+        # Requête AJAX
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id, 
+            'message': f'Scan WiFi démarré sur {interface}',
+            'status': 'running'
+        })
+    else:
+        # Requête normale
+        flash(f'Scan WiFi démarré sur {interface}', 'success')
+        return redirect(url_for('aircrack_page'))
+
+@app.route('/scan/wifi/progress/<scan_id>')
+def wifi_progress(scan_id):
+    """API pour suivre le progrès d'un scan WiFi"""
+    if scan_id not in scan_status:
+        return jsonify({'error': 'Scan non trouvé'}), 404
+    
+    status = scan_status[scan_id]
+    result = scan_results.get(scan_id)
+    
+    response = {
+        'scan_id': scan_id,
+        'status': status['status'],
+        'tool': status['tool'],
+        'interface': status.get('interface'),
+        'start_time': status.get('start_time')
+    }
+    
+    if result:
+        response['result'] = {
+            'success': result['success'],
+            'output': result.get('output', ''),
+            'error': result.get('error', ''),
+            'timestamp': result.get('timestamp')
+        }
+    
+    return jsonify(response)
 
 @app.route('/wifi/monitor/start', methods=['POST'])
 def start_monitor_mode():
     """Active le mode monitor"""
     interface = request.form.get('interface', 'wlan0')
-    result = monitor_mode_start(interface)
-    return jsonify({'result': result})
+    
+    try:
+        result = monitor_mode_start(interface)
+        return jsonify({'success': True, 'result': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/wifi/monitor/stop', methods=['POST'])
 def stop_monitor_mode():
     """Désactive le mode monitor"""
     interface = request.form.get('interface', 'wlan0mon')
-    result = monitor_mode_stop(interface)
-    return jsonify({'result': result})
+    
+    try:
+        result = monitor_mode_stop(interface)
+        return jsonify({'success': True, 'result': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/wifi/interfaces/api')
+def wifi_interfaces_api():
+    """API pour récupérer les interfaces WiFi disponibles"""
+    try:
+        interfaces = get_wifi_interfaces()
+        return jsonify({'success': True, 'interfaces': interfaces})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ====== ROUTES WIRESHARK ======
 @app.route('/scan/wireshark', methods=['POST'])
@@ -360,13 +422,11 @@ def wireshark_interfaces_api():
 def analyze_pcap():
     """Analyser un fichier PCAP uploadé"""
     if 'pcap_file' not in request.files:
-        flash('Aucun fichier PCAP fourni', 'error')
-        return redirect(url_for('wireshark_page'))
+        return jsonify({'error': 'Aucun fichier PCAP fourni'}), 400
     
     file = request.files['pcap_file']
     if file.filename == '':
-        flash('Nom de fichier vide', 'error')
-        return redirect(url_for('wireshark_page'))
+        return jsonify({'error': 'Nom de fichier vide'}), 400
     
     if file and (file.filename.endswith('.pcap') or file.filename.endswith('.pcapng')):
         # Créer le dossier temp s'il n'existe pas
@@ -443,6 +503,8 @@ def download_wireshark_result(scan_id):
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
         from reportlab.lib import colors
+        from io import BytesIO
+        import tempfile
         
         # Créer un buffer en mémoire
         buffer = BytesIO()
@@ -529,6 +591,7 @@ def download_wireshark_result(scan_id):
         buffer.close()
         
         # Créer la réponse de téléchargement
+        from flask import Response
         response = Response(
             pdf_data,
             mimetype='application/pdf',
@@ -555,6 +618,7 @@ Résultats:
 NOTE: Pour générer des rapports PDF, installez reportlab: pip install reportlab
 """
         
+        from flask import Response
         response = Response(
             content,
             mimetype='text/plain',
@@ -607,7 +671,7 @@ def zap_scan():
             elif scan_type == 'quick':
                 result = zap_quick_scan(target_url)
             else:
-                result = run_zap_baseline_scan(target_url)  # fallback
+                result = simulate_zap_scan(target_url)
             
             scan_results[scan_id] = {
                 'success': True,
@@ -680,16 +744,11 @@ def check_scan_status(scan_id):
         return jsonify(scan_status[scan_id])
     return jsonify({'status': 'not_found'}), 404
 
-@app.route('/results')
-def all_results():
-    """Page de tous les résultats"""
-    return render_template('all_results.html', results=scan_results)
-
 @app.route('/scan/<scan_id>')
 def view_scan_result(scan_id):
-    """Afficher un résultat de scan spécifique"""
+    """Page pour visualiser les résultats d'un scan spécifique"""
     if scan_id not in scan_results:
-        flash('Résultat de scan non trouvé', 'error')
+        flash('Résultat non trouvé', 'error')
         return redirect(url_for('all_results'))
     
     result = scan_results[scan_id]
@@ -699,6 +758,11 @@ def view_scan_result(scan_id):
                          scan_id=scan_id, 
                          result=result, 
                          status=status)
+
+@app.route('/results')
+def all_results():
+    """Page de tous les résultats"""
+    return render_template('all_results.html', results=scan_results)
 
 @app.route('/api/result/<scan_id>')
 def get_result_api(scan_id):
@@ -730,27 +794,163 @@ def health_check():
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'active_scans': len([s for s in scan_status.values() if s['status'] == 'running']),
         'total_results': len(scan_results),
-        'available_modules': ['Nmap', 'OWASP ZAP', 'Wireshark', 'Aircrack-ng']
+        'available_tools': {
+            'nmap': True,
+            'wireshark': True,
+            'owasp_zap': True,
+            'aircrack_ng': True
+        }
     })
 
-# ====== GESTION D'ERREURS ======
+@app.route('/export/results/<format>')
+def export_results(format):
+    """Exporter tous les résultats dans un format donné"""
+    if format not in ['json', 'csv', 'txt']:
+        return jsonify({'error': 'Format non supporté'}), 400
+    
+    if format == 'json':
+        from flask import Response
+        import json
+        
+        export_data = {
+            'export_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'total_scans': len(scan_results),
+            'results': scan_results
+        }
+        
+        response = Response(
+            json.dumps(export_data, indent=2),
+            mimetype='application/json',
+            headers={
+                'Content-Disposition': f'attachment; filename=cybersec_results_{int(time.time())}.json'
+            }
+        )
+        return response
+    
+    elif format == 'csv':
+        from flask import Response
+        import csv
+        from io import StringIO
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Headers
+        writer.writerow(['Scan ID', 'Tool', 'Target/Interface', 'Success', 'Timestamp', 'Output Preview'])
+        
+        # Data
+        for scan_id, result in scan_results.items():
+            writer.writerow([
+                scan_id,
+                result.get('tool', 'Unknown'),
+                result.get('target', result.get('interface', 'N/A')),
+                'Success' if result.get('success', False) else 'Failed',
+                result.get('timestamp', 'N/A'),
+                result.get('output', result.get('error', ''))[:100] + '...' if len(result.get('output', result.get('error', ''))) > 100 else result.get('output', result.get('error', ''))
+            ])
+        
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename=cybersec_results_{int(time.time())}.csv'
+            }
+        )
+        return response
+    
+    elif format == 'txt':
+        from flask import Response
+        
+        content = f"""Cybersecurity Toolbox - Export des Résultats
+===============================================
+Date d'export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Nombre total de scans: {len(scan_results)}
+
+"""
+        
+        for scan_id, result in scan_results.items():
+            content += f"""
+{'='*50}
+Scan ID: {scan_id}
+Outil: {result.get('tool', 'Unknown')}
+Cible/Interface: {result.get('target', result.get('interface', 'N/A'))}
+Statut: {'Succès' if result.get('success', False) else 'Échec'}
+Timestamp: {result.get('timestamp', 'N/A')}
+
+Résultats:
+{'-'*20}
+{result.get('output', result.get('error', 'Aucun résultat'))}
+
+"""
+        
+        response = Response(
+            content,
+            mimetype='text/plain',
+            headers={
+                'Content-Disposition': f'attachment; filename=cybersec_results_{int(time.time())}.txt'
+            }
+        )
+        return response
+
+# ====== ROUTES D'ERREUR ======
 @app.errorhandler(404)
-def not_found(error):
-    """Page d'erreur 404"""
+def not_found_error(error):
+    """Gestionnaire d'erreur 404"""
     return render_template('error.html', 
                          error_code=404, 
                          error_message="Page non trouvée"), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    """Page d'erreur 500"""
+    """Gestionnaire d'erreur 500"""
     return render_template('error.html', 
                          error_code=500, 
                          error_message="Erreur interne du serveur"), 500
 
-if __name__ == '__main__':
-    # Créer le dossier temp s'il n'existe pas
-    os.makedirs('temp', exist_ok=True)
+# ====== FONCTIONS UTILITAIRES ======
+def cleanup_old_results():
+    """Nettoie les anciens résultats (plus de 24h)"""
+    current_time = time.time()
+    to_remove = []
     
-    # Démarrer l'application
-    app.run(debug=True, host='127.0.0.1', port=5000, threaded=True)
+    for scan_id in scan_results:
+        # Extraire le timestamp du scan_id
+        try:
+            scan_timestamp = int(scan_id.split('_')[-1])
+            if current_time - scan_timestamp > 86400:  # 24 heures
+                to_remove.append(scan_id)
+        except (ValueError, IndexError):
+            continue
+    
+    for scan_id in to_remove:
+        scan_results.pop(scan_id, None)
+        scan_status.pop(scan_id, None)
+    
+    return len(to_remove)
+
+@app.route('/admin/cleanup', methods=['POST'])
+def admin_cleanup():
+    """Route administrateur pour nettoyer les anciens résultats"""
+    cleaned = cleanup_old_results()
+    flash(f'{cleaned} anciens résultats supprimés', 'success')
+    return redirect(url_for('all_results'))
+
+# ====== DÉMARRAGE DE L'APPLICATION ======
+if __name__ == '__main__':
+    # Créer les dossiers nécessaires
+    os.makedirs('temp', exist_ok=True)
+    os.makedirs('logs', exist_ok=True)
+    
+    # Nettoyer les anciens résultats au démarrage
+    cleanup_old_results()
+    
+    print("🔒 Cybersecurity Toolbox - Démarrage...")
+    print("📡 Modules disponibles:")
+    print("   • Nmap Scanner (Découverte réseau)")
+    print("   • OWASP ZAP (Test applications web)")
+    print("   • Wireshark (Analyse trafic réseau)")
+    print("   • Aircrack-ng (Sécurité WiFi)")
+    print(f"🌐 Application accessible sur: http://127.0.0.1:5000")
+    print("⚠️  Utilisez uniquement sur vos propres systèmes ou avec autorisation!")
+    
+    app.run(debug=True, host='127.0.0.1', port=5000)
