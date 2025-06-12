@@ -17,6 +17,7 @@ from modules.aircrack_module import scan_wifi_networks, monitor_mode_start, moni
 from modules.wireshark_module import capture_traffic, analyze_pcap_file, get_network_interfaces, filter_traffic
 from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, zap_active_scan, zap_quick_scan, simulate_zap_scan
 from modules.hydra_module import run_hydra_attack, hydra_ssh_attack, hydra_ftp_attack, hydra_http_attack, get_hydra_services, generate_username_list
+from modules.nikto_module import run_nikto_scan, nikto_quick_scan, nikto_full_scan, nikto_ssl_scan, nikto_cgi_scan
 
 app = Flask(__name__)
 app.secret_key = 'cybersec_toolbox_2024'
@@ -1224,6 +1225,163 @@ def admin_cleanup():
     flash(f'{cleaned} anciens résultats supprimés', 'success')
     return redirect(url_for('all_results'))
 
+@app.route('/nikto')
+def nikto_page():
+    """Page dédiée Nikto Web Scanner"""
+    return render_template('nikto.html')
+
+# ====== ROUTES NIKTO ======
+@app.route('/scan/nikto', methods=['POST'])
+def nikto_scan():
+    """Endpoint pour scan Nikto - Support AJAX"""
+    target_url = request.form.get('target_url')
+    scan_type = request.form.get('nikto_scan_type', 'basic')
+    
+    if not target_url:
+        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+            # Requête AJAX
+            return jsonify({'error': 'Veuillez spécifier une URL cible'}), 400
+        else:
+            # Requête normale
+            flash('Veuillez spécifier une URL cible', 'error')
+            return redirect(url_for('nikto_page'))
+    
+    scan_id = f"nikto_{int(time.time())}"
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'Nikto', 
+        'target': target_url,
+        'scan_type': scan_type,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_scan():
+        try:
+            # Ajouter un délai pour simuler un scan réel
+            time.sleep(2)
+            if scan_type == 'basic':
+                result = run_nikto_scan(target_url, "basic")
+            elif scan_type == 'quick':
+                result = nikto_quick_scan(target_url)
+            elif scan_type == 'full':
+                result = nikto_full_scan(target_url)
+            elif scan_type == 'ssl':
+                result = nikto_ssl_scan(target_url)
+            elif scan_type == 'cgi':
+                result = nikto_cgi_scan(target_url)
+            else:
+                result = run_nikto_scan(target_url, "basic")
+            
+            scan_results[scan_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'Nikto',
+                'target': target_url,
+                'scan_type': scan_type,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'completed'
+        except Exception as e:
+            scan_results[scan_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'Nikto',
+                'target': target_url,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_scan)
+    thread.start()
+    
+    # Réponse différente selon le type de requête
+    if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+        # Requête AJAX
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id, 
+            'message': f'Scan Nikto démarré sur {target_url}',
+            'status': 'running'
+        })
+    else:
+        # Requête normale
+        flash(f'Scan Nikto démarré sur {target_url}', 'success')
+        return redirect(url_for('nikto_page'))
+
+@app.route('/scan/nikto/progress/<scan_id>')
+def nikto_progress(scan_id):
+    """API pour suivre le progrès d'un scan Nikto"""
+    if scan_id not in scan_status:
+        return jsonify({'error': 'Scan non trouvé'}), 404
+    
+    status = scan_status[scan_id]
+    result = scan_results.get(scan_id)
+    
+    response = {
+        'scan_id': scan_id,
+        'status': status['status'],
+        'tool': status['tool'],
+        'target': status.get('target'),
+        'start_time': status.get('start_time')
+    }
+    
+    if result:
+        response['result'] = {
+            'success': result['success'],
+            'output': result.get('output', ''),
+            'error': result.get('error', ''),
+            'timestamp': result.get('timestamp')
+        }
+    
+    return jsonify(response)
+
+@app.route('/scan/nikto/quick', methods=['POST'])
+def nikto_quick():
+    """Scan Nikto rapide"""
+    target_url = request.form.get('target_url')
+    
+    if not target_url:
+        return jsonify({'error': 'URL cible manquante'}), 400
+    
+    scan_id = f"nikto_quick_{int(time.time())}"
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'Nikto Quick', 
+        'target': target_url,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_scan():
+        try:
+            result = nikto_quick_scan(target_url)
+            scan_results[scan_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'Nikto Quick',
+                'target': target_url,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'completed'
+        except Exception as e:
+            scan_results[scan_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'Nikto Quick',
+                'target': target_url,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_scan)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'scan_id': scan_id, 
+        'message': f'Scan Nikto rapide démarré sur {target_url}',
+        'status': 'running'
+    })
+
 # ====== DÉMARRAGE DE L'APPLICATION ======
 if __name__ == '__main__':
     # Créer les dossiers nécessaires
@@ -1244,3 +1402,6 @@ if __name__ == '__main__':
     print("⚠️  Utilisez uniquement sur vos propres systèmes ou avec autorisation!")
     
     app.run(debug=True, host='127.0.0.1', port=5000)
+
+
+    
