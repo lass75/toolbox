@@ -13,7 +13,7 @@ from datetime import datetime
 
 # Import des modules
 from modules.nmap_module import run_nmap_scan, nmap_quick_scan, nmap_ping_sweep
-from modules.aircrack_module import scan_wifi_networks, simulate_wifi_scan, monitor_mode_start, monitor_mode_stop
+from modules.aircrack_module import scan_wifi_networks, monitor_mode_start, monitor_mode_stop
 from modules.wireshark_module import capture_traffic, analyze_pcap_file, get_network_interfaces, filter_traffic
 from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, simulate_zap_scan
 
@@ -413,7 +413,7 @@ def wireshark_result(scan_id):
 
 @app.route('/wireshark/download/<scan_id>')
 def download_wireshark_result(scan_id):
-    """Télécharger le résultat de capture Wireshark"""
+    """Télécharger le résultat de capture Wireshark en PDF"""
     if scan_id not in scan_results:
         flash('Résultat non trouvé', 'error')
         return redirect(url_for('wireshark_page'))
@@ -424,8 +424,114 @@ def download_wireshark_result(scan_id):
         flash('Impossible de télécharger - capture échouée', 'error')
         return redirect(url_for('wireshark_result', scan_id=scan_id))
     
-    # Créer le contenu du fichier
-    content = f"""Capture Wireshark - {scan_id}
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Preformatted
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from io import BytesIO
+        import tempfile
+        
+        # Créer un buffer en mémoire
+        buffer = BytesIO()
+        
+        # Créer le document PDF
+        doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                              topMargin=inch, bottomMargin=inch,
+                              leftMargin=inch, rightMargin=inch)
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            textColor=colors.darkblue
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=colors.darkgreen
+        )
+        
+        # Contenu du PDF
+        story = []
+        
+        # Titre
+        story.append(Paragraph("Rapport de Capture Wireshark", title_style))
+        story.append(Spacer(1, 12))
+        
+        # Informations générales
+        story.append(Paragraph("Informations de la Capture", heading_style))
+        
+        info_data = f"""
+        <b>ID de capture:</b> {scan_id}<br/>
+        <b>Interface:</b> {result.get('interface', 'N/A')}<br/>
+        <b>Durée:</b> {result.get('duration', 'N/A')} secondes<br/>
+        <b>Filtre:</b> {result.get('filter', 'Aucun')}<br/>
+        <b>Timestamp:</b> {result.get('timestamp', 'N/A')}<br/>
+        <b>Outil:</b> {result.get('tool', 'Wireshark')}
+        """
+        
+        story.append(Paragraph(info_data, styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Résultats de la capture
+        story.append(Paragraph("Résultats de la Capture", heading_style))
+        
+        # Formatter la sortie pour le PDF
+        output_text = result.get('output', 'Aucun résultat')
+        if len(output_text) > 10000:  # Limiter la taille pour le PDF
+            output_text = output_text[:10000] + "\n... (résultats tronqués pour le PDF)"
+        
+        # Utiliser Preformatted pour conserver le formatage
+        pre_style = ParagraphStyle(
+            'CodeStyle',
+            parent=styles['Code'],
+            fontSize=8,
+            fontName='Courier',
+            leftIndent=10,
+            backgroundColor=colors.lightgrey,
+            borderColor=colors.grey,
+            borderWidth=1,
+            borderPadding=5
+        )
+        
+        story.append(Preformatted(output_text, pre_style))
+        
+        # Pied de page
+        story.append(Spacer(1, 30))
+        footer_text = f"Rapport généré par Cybersecurity Toolbox - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        story.append(Paragraph(footer_text, styles['Normal']))
+        
+        # Construire le PDF
+        doc.build(story)
+        
+        # Préparer la réponse
+        buffer.seek(0)
+        pdf_data = buffer.read()
+        buffer.close()
+        
+        # Créer la réponse de téléchargement
+        from flask import Response
+        response = Response(
+            pdf_data,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename=wireshark_rapport_{scan_id}.pdf'
+            }
+        )
+        
+        return response
+        
+    except ImportError:
+        # Si reportlab n'est pas installé, fallback vers du texte
+        content = f"""Rapport de Capture Wireshark - {scan_id}
 =====================================
 Interface: {result.get('interface', 'N/A')}
 Durée: {result.get('duration', 'N/A')} secondes
@@ -435,19 +541,24 @@ Timestamp: {result.get('timestamp', 'N/A')}
 Résultats:
 ----------
 {result.get('output', 'Aucun résultat')}
+
+NOTE: Pour générer des rapports PDF, installez reportlab: pip install reportlab
 """
+        
+        from flask import Response
+        response = Response(
+            content,
+            mimetype='text/plain',
+            headers={
+                'Content-Disposition': f'attachment; filename=wireshark_capture_{scan_id}.txt'
+            }
+        )
+        
+        return response
     
-    # Créer la réponse de téléchargement
-    from flask import Response
-    response = Response(
-        content,
-        mimetype='text/plain',
-        headers={
-            'Content-Disposition': f'attachment; filename=wireshark_capture_{scan_id}.txt'
-        }
-    )
-    
-    return response
+    except Exception as e:
+        flash(f'Erreur lors de la génération du PDF: {str(e)}', 'error')
+        return redirect(url_for('wireshark_result', scan_id=scan_id))
 
 # ====== ROUTES OWASP ZAP ======
 @app.route('/scan/zap', methods=['POST'])
