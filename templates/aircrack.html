@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aircrack-ng Scanner - Cybersecurity Toolbox</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background-color: #343a40 !important;
+            margin-bottom: 0;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+        }
+
+        .navbar-nav .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: white !important;
+        }
+
+        .container {
+            margin-top: 30px;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border: none;
+        }
+
+        .card-header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+
+        .card-header .lead {
+            margin-top: 10px;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 0;
+        }
+
+        .nav-tabs .nav-link {
+            border: none;
+            color: #6c757d;
+            font-weight: 600;
+            padding: 15px 25px;
+            margin-bottom: -2px;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: #28a745;
+            border-bottom: 2px solid #28a745;
+            background: none;
+        }
+
+        .tab-content {
+            padding: 30px;
+        }
+
+        .scan-form {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+            position: relative;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 12px 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #28a745;
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+
+        .btn {
+            border-radius: 10px;
+            padding: 12px 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border: none;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .interface-examples {
+            margin-top: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+
+        .badge-example {
+            display: inline-block;
+            background: #e9ecef;
+            color: #495057;
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+        }
+
+        .badge-example:hover {
+            background: #28a745;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .sidebar h5 {
+            color: #28a745;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .form-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            z-index: 100;
+        }
+
+        .loading-message {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border-left: 4px solid #28a745;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .card-header h1 {
+                font-size: 2rem;
+            }
+            
+            .scan-form {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-shield-alt"></i> Cybersecurity Toolbox
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="{{ url_for('index') }}">Accueil</a>
+                    <a class="nav-link" href="{{ url_for('nmap_page') }}">Nmap</a>
+                    <a class="nav-link" href="{{ url_for('zap_page') }}">OWASP ZAP</a>
+                    <a class="nav-link" href="{{ url_for('wireshark_page') }}">Wireshark</a>
+                    <a class="nav-link active" href="{{ url_for('aircrack_page') }}">Aircrack-ng</a>
+                    <a class="nav-link" href="{{ url_for('all_results') }}">Résultats</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Messages Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <div class="col-lg-9">
+                <!-- Main Card -->
+                <div class="main-card">
+                    <div class="card-header">
+                        <h1><i class="fas fa-wifi"></i> Aircrack-ng WiFi Scanner</h1>
+                        <p class="lead">Audit de sécurité des réseaux sans-fil</p>
+                    </div>
+
+                    <!-- Onglets -->
+                    <ul class="nav nav-tabs" id="aircrackTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="scan-tab" data-bs-toggle="tab" data-bs-target="#scan" 
+                                    type="button" role="tab">
+                                <i class="fas fa-search"></i> Scanner WiFi
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="monitor-tab" data-bs-toggle="tab" data-bs-target="#monitor" 
+                                    type="button" role="tab">
+                                <i class="fas fa-eye"></i> Mode Monitor
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="aircrackTabContent">
+                        <!-- Onglet Scanner WiFi -->
+                        <div class="tab-pane fade show active" id="scan" role="tabpanel">
+                            <div class="scan-form border-0 p-0">
+                                <h3 class="mb-4">
+                                    <i class="fas fa-wifi text-success"></i> Scanner les Réseaux WiFi
+                                </h3>
+
+                                <!-- Overlay de chargement pour le formulaire -->
+                                <div class="form-loading-overlay" id="formLoadingOverlay">
+                                    <div class="loading-message">
+                                        <i class="fas fa-hourglass-start text-success"></i>
+                                        <strong class="ms-2">Démarrage du scan WiFi...</strong>
+                                    </div>
+                                </div>
+
+                                <form id="aircrackForm" action="{{ url_for('wifi_scan') }}" method="POST">
+                                    <!-- Interface réseau -->
+                                    <div class="mb-4">
+                                        <label for="interface" class="form-label h5">
+                                            <i class="fas fa-ethernet text-primary"></i> Interface WiFi
+                                        </label>
+                                        <select class="form-control form-control-lg" id="interface" name="interface" required>
+                                            <option value="">Sélectionnez une interface WiFi...</option>
+                                            <option value="wlan0">wlan0 (Interface WiFi principale)</option>
+                                            <option value="wlan1">wlan1 (Interface WiFi secondaire)</option>
+                                            <option value="wlp2s0">wlp2s0 (Interface WiFi moderne)</option>
+                                            <option value="wlan0mon">wlan0mon (Mode monitor)</option>
+                                        </select>
+                                        <div class="interface-examples">
+                                            <strong>Interfaces communes:</strong>
+                                            <span class="badge-example" onclick="selectInterface('wlan0')">wlan0</span>
+                                            <span class="badge-example" onclick="selectInterface('wlan1')">wlan1</span>
+                                            <span class="badge-example" onclick="selectInterface('wlp2s0')">wlp2s0</span>
+                                            <span class="badge-example" onclick="selectInterface('wlan0mon')">wlan0mon</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Boutons d'action -->
+                                    <div class="d-flex gap-3 justify-content-end">
+                                        <button type="reset" class="btn btn-outline-secondary btn-lg">
+                                            <i class="fas fa-undo"></i> Reset
+                                        </button>
+                                        <button type="button" class="btn btn-warning btn-lg" onclick="quickScan()">
+                                            <i class="fas fa-bolt"></i> Scan Rapide
+                                        </button>
+                                        <button type="submit" class="btn btn-success btn-lg" id="startScanBtn">
+                                            <i class="fas fa-play"></i> Démarrer Scan WiFi
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Onglet Mode Monitor -->
+                        <div class="tab-pane fade" id="monitor" role="tabpanel">
+                            <div class="scan-form border-0 p-0">
+                                <h3 class="mb-4">
+                                    <i class="fas fa-eye text-info"></i> Gestion du Mode Monitor
+                                </h3>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h5 class="card-title text-success">
+                                                    <i class="fas fa-play-circle"></i> Activer Mode Monitor
+                                                </h5>
+                                                <p class="card-text">Active le mode monitor sur l'interface WiFi pour la capture de paquets.</p>
+                                                <form action="{{ url_for('start_monitor_mode') }}" method="POST" class="d-inline">
+                                                    <div class="mb-3">
+                                                        <select class="form-control" name="interface" required>
+                                                            <option value="wlan0">wlan0</option>
+                                                            <option value="wlan1">wlan1</option>
+                                                            <option value="wlp2s0">wlp2s0</option>
+                                                        </select>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-success">
+                                                        <i class="fas fa-power-off"></i> Activer Monitor
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h5 class="card-title text-danger">
+                                                    <i class="fas fa-stop-circle"></i> Désactiver Mode Monitor
+                                                </h5>
+                                                <p class="card-text">Désactive le mode monitor et restaure le mode normal.</p>
+                                                <form action="{{ url_for('stop_monitor_mode') }}" method="POST" class="d-inline">
+                                                    <div class="mb-3">
+                                                        <select class="form-control" name="interface" required>
+                                                            <option value="wlan0mon">wlan0mon</option>
+                                                            <option value="wlan1mon">wlan1mon</option>
+                                                            <option value="wlp2s0mon">wlp2s0mon</option>
+                                                        </select>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-danger">
+                                                        <i class="fas fa-power-off"></i> Désactiver Monitor
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-3">
+                <!-- Informations -->
+                <div class="sidebar">
+                    <h5><i class="fas fa-info-circle"></i> Informations</h5>
+                    <p><strong>Aircrack-ng</strong> est une suite d'outils pour auditer la sécurité des réseaux WiFi.</p>
+                    
+                    <h6>Fonctionnalités:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success"></i> Scan des réseaux WiFi</li>
+                        <li><i class="fas fa-check text-success"></i> Analyse de sécurité</li>
+                        <li><i class="fas fa-check text-success"></i> Mode monitor</li>
+                        <li><i class="fas fa-check text-success"></i> Détection vulnérabilités</li>
+                    </ul>
+                </div>
+
+                <!-- Actions rapides -->
+                <div class="sidebar">
+                    <h5><i class="fas fa-bolt"></i> Actions Rapides</h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-success btn-sm" onclick="quickScan()">
+                            <i class="fas fa-wifi"></i> Scan Rapide
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="checkInterfaces()">
+                            <i class="fas fa-list"></i> Lister Interfaces
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="showHelp()">
+                            <i class="fas fa-question-circle"></i> Aide
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Prérequis -->
+                <div class="sidebar">
+                    <h5><i class="fas fa-exclamation-triangle text-warning"></i> Prérequis</h5>
+                    <p><small><strong>Aircrack-ng</strong> doit être installé :</small></p>
+                    <pre><small>sudo apt install aircrack-ng</small></pre>
+                    <p><small><strong>Privilèges admin</strong> requis pour le mode monitor.</small></p>
+                    <p><small><strong>Légalité :</strong> Utilisez uniquement sur vos propres réseaux.</small></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Fonctions utilitaires
+        function selectInterface(interfaceName) {
+            document.getElementById('interface').value = interfaceName;
+        }
+
+        function quickScan() {
+            selectInterface('wlan0');
+            document.getElementById('aircrackForm').submit();
+        }
+
+        function checkInterfaces() {
+            alert('Fonction à implémenter : Vérification des interfaces WiFi disponibles');
+        }
+
+        function showHelp() {
+            alert('Aide Aircrack-ng :\n\n1. Sélectionnez une interface WiFi\n2. Lancez le scan\n3. Analysez les résultats\n\nAttention : Utilisez uniquement sur vos propres réseaux !');
+        }
+
+        // Gestionnaire de soumission du formulaire
+        document.getElementById('aircrackForm').addEventListener('submit', function(e) {
+            const interface = document.getElementById('interface').value;
+            
+            if (!interface) {
+                e.preventDefault();
+                alert('Veuillez sélectionner une interface WiFi');
+                return;
+            }
+
+            // Afficher l'overlay de chargement discret
+            document.getElementById('formLoadingOverlay').style.display = 'flex';
+            
+            // Désactiver le bouton pour éviter les double-clics
+            document.getElementById('startScanBtn').disabled = true;
+            
+            // Le formulaire se soumet normalement après ça
+        });
+    </script>
+</body>
+</html>
