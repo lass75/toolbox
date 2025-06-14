@@ -19,7 +19,7 @@ from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, zap
 from modules.hydra_module import run_hydra_attack, hydra_ssh_attack, hydra_ftp_attack, hydra_http_attack, get_hydra_services, generate_username_list
 from modules.nikto_module import run_nikto_scan, nikto_quick_scan, nikto_full_scan, nikto_ssl_scan, nikto_cgi_scan
 from modules.metasploit_module import run_metasploit_exploit, metasploit_web_exploit, metasploit_smb_exploit, metasploit_ssh_exploit, metasploit_ftp_exploit, metasploit_rdp_exploit, metasploit_port_scan
-
+from modules.openvas_module import run_openvas_scan, openvas_discovery_scan, openvas_full_scan, openvas_web_scan, openvas_network_scan, openvas_custom_scan
 
 app = Flask(__name__)
 app.secret_key = 'cybersec_toolbox_2024'
@@ -1572,4 +1572,161 @@ if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=5000)
 
 
+
+@app.route('/openvas')
+def openvas_page():
+    """Page dédiée OpenVAS Scanner"""
+    return render_template('openvas.html')
+
+@app.route('/scan/openvas', methods=['POST'])
+def openvas_scan():
+    """Endpoint pour scan OpenVAS - Support AJAX"""
+    target = request.form.get('target')
+    scan_type = request.form.get('openvas_scan_type', 'basic')
+    port_range = request.form.get('port_range')
     
+    if not target:
+        if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+            return jsonify({'error': 'Veuillez spécifier une cible'}), 400
+        else:
+            flash('Veuillez spécifier une cible', 'error')
+            return redirect(url_for('openvas_page'))
+    
+    scan_id = f"openvas_{int(time.time())}"
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'OpenVAS', 
+        'target': target,
+        'scan_type': scan_type,
+        'port_range': port_range,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_scan():
+        try:
+            time.sleep(2)  # Délai de démarrage
+            
+            if scan_type == 'basic':
+                result = run_openvas_scan(target, "basic", port_range)
+            elif scan_type == 'discovery':
+                result = openvas_discovery_scan(target)
+            elif scan_type == 'full':
+                result = openvas_full_scan(target)
+            elif scan_type == 'web':
+                result = openvas_web_scan(target)
+            elif scan_type == 'network':
+                result = openvas_network_scan(target)
+            elif scan_type == 'custom':
+                result = openvas_custom_scan(target, port_range)
+            else:
+                result = run_openvas_scan(target, scan_type, port_range)
+            
+            scan_results[scan_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'OpenVAS',
+                'target': target,
+                'scan_type': scan_type,
+                'port_range': port_range,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'completed'
+            
+        except Exception as e:
+            scan_results[scan_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'OpenVAS',
+                'target': target,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_scan)
+    thread.start()
+    
+    if 'XMLHttpRequest' in request.headers.get('X-Requested-With', ''):
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id, 
+            'message': f'Scan OpenVAS démarré sur {target}',
+            'status': 'running'
+        })
+    else:
+        flash(f'Scan OpenVAS démarré sur {target}', 'success')
+        return redirect(url_for('openvas_page'))
+
+@app.route('/scan/openvas/progress/<scan_id>')
+def openvas_progress(scan_id):
+    """API pour suivre le progrès d'un scan OpenVAS"""
+    if scan_id not in scan_status:
+        return jsonify({'error': 'Scan non trouvé'}), 404
+    
+    status = scan_status[scan_id]
+    result = scan_results.get(scan_id)
+    
+    response = {
+        'scan_id': scan_id,
+        'status': status['status'],
+        'tool': status['tool'],
+        'target': status.get('target'),
+        'scan_type': status.get('scan_type'),
+        'start_time': status.get('start_time')
+    }
+    
+    if result:
+        response['result'] = {
+            'success': result['success'],
+            'output': result.get('output', ''),
+            'error': result.get('error', ''),
+            'timestamp': result.get('timestamp')
+        }
+    
+    return jsonify(response)
+
+@app.route('/scan/openvas/quick', methods=['POST'])
+def openvas_quick():
+    """Scan OpenVAS rapide (discovery)"""
+    target = request.form.get('target')
+    
+    if not target:
+        return jsonify({'error': 'Cible manquante'}), 400
+    
+    scan_id = f"openvas_quick_{int(time.time())}"
+    scan_status[scan_id] = {
+        'status': 'running', 
+        'tool': 'OpenVAS Quick', 
+        'target': target,
+        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    def run_scan():
+        try:
+            result = openvas_discovery_scan(target)
+            scan_results[scan_id] = {
+                'success': True,
+                'output': result,
+                'tool': 'OpenVAS Quick',
+                'target': target,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'completed'
+        except Exception as e:
+            scan_results[scan_id] = {
+                'success': False,
+                'error': str(e),
+                'tool': 'OpenVAS Quick',
+                'target': target,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            scan_status[scan_id]['status'] = 'error'
+    
+    thread = threading.Thread(target=run_scan)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'scan_id': scan_id, 
+        'message': f'Scan OpenVAS rapide démarré sur {target}',
+        'status': 'running'
+    })

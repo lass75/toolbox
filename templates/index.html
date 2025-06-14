@@ -149,6 +149,19 @@
                     </div>
                 </div>
 
+                <!-- Module OpenVAS -->
+                <div class="card module-card" onclick="window.location.href='/openvas'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-shield-virus fa-2x text-danger me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">OpenVAS</h6>
+                                <small class="text-muted">Scanner vulnérabilités</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <hr>
                 
                 <!-- Actions rapides -->
@@ -467,6 +480,22 @@
                             <li>Analyse de configuration serveur</li>
                         </ul>
                         <a href="/nikto" class="btn btn-success">Utiliser Nikto</a>
+                    `
+                },
+                'openvas': {
+                    title: 'OpenVAS Scanner',
+                    content: `
+                        <p><strong>Description:</strong> Scanner de vulnerabilites open-source pour evaluation complete de la securite</p>
+                        <p><strong>Fonctionnalites:</strong></p>
+                        <ul>
+                            <li>Plus de 50,000 tests de vulnerabilites</li>
+                            <li>Detection automatique des CVE</li>
+                            <li>Rapports detailles avec classification CVSS</li>
+                            <li>Scan reseau et applications web</li>
+                            <li>Evaluation des configurations de securite</li>
+                            <li>Gestion centralisee des scans</li>
+                        </ul>
+                        <a href="/openvas" class="btn btn-danger">Utiliser OpenVAS</a>
                     `
                 }
             };
