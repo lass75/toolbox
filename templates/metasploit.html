@@ -304,10 +304,11 @@
                 Framework de test d'intrusion et d'exploitation de vulnérabilités
             </p>
             <div class="mt-3">
-                <span class="badge-example" onclick="fillExample('eternal_blue')">EternalBlue</span>
-                <span class="badge-example" onclick="fillExample('apache_struts')">Apache Struts</span>
-                <span class="badge-example" onclick="fillExample('drupalgeddon')">Drupalgeddon</span>
+                <span class="badge-example" onclick="fillExample('eternal_blue')">EternalBlue → Cible Windows</span>
+                <span class="badge-example" onclick="fillExample('apache_struts')">Apache Struts → Serveur web</span>
+                <span class="badge-example" onclick="fillExample('drupalgeddon')">Drupalgeddon → Site Drupal</span>
                 <span class="badge-example" onclick="fillExample('handler')">Multi Handler</span>
+                <span class="badge-example" onclick="fillExample('local_vm')">VM Locale</span>
             </div>
         </div>
 
@@ -435,9 +436,17 @@
                             </div>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-cog"></i> Générer payload
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-cog"></i> Générer payload
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="startPayloadListener()">
+                            <i class="fas fa-headphones"></i> Démarrer listener pour ce payload
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="sharePayload()">
+                            <i class="fas fa-share"></i> Partager payload (HTTP)
+                        </button>
+                    </div>
                 </form>
             </div>
 
@@ -624,6 +633,8 @@
         // Variables globales
         let currentOperation = null;
         let consoleLines = 0;
+        let lastGeneratedPayload = null;
+        let httpServer = null;
 
         // Exemples prédéfinis
         const examples = {
@@ -650,6 +661,12 @@
                 target: '',
                 port: '4444',
                 payload: 'windows/meterpreter/reverse_tcp'
+            },
+            local_vm: {
+                exploit: 'exploit/windows/smb/ms17_010_eternalblue',
+                target: '192.168.1.100',
+                port: '445',
+                payload: 'windows/x64/meterpreter/reverse_tcp'
             }
         };
 
@@ -690,9 +707,22 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('Réponse serveur:', data); // Debug
                 if (data.success) {
                     addConsoleeLine('success', data.output || 'Opération terminée avec succès');
                     setStatus('completed', 'Terminé');
+                    
+                    // Stocker les infos du payload généré - CORRECTION ICI
+                    if (form.action.includes('payload') || form.id === 'payloadForm') {
+                        lastGeneratedPayload = {
+                            type: document.getElementById('payloadType').value,
+                            lhost: document.getElementById('lhost').value,
+                            lport: document.getElementById('lport').value,
+                            format: document.getElementById('payloadFormat').value
+                        };
+                        console.log('Payload sauvegardé:', lastGeneratedPayload); // Debug
+                        addConsoleeLine('output', `💾 Payload sauvegardé. Vous pouvez maintenant démarrer le listener.`);
+                    }
                 } else {
                     addConsoleeLine('error', data.error || 'Erreur lors de l\'opération');
                     setStatus('error', 'Erreur');
@@ -814,13 +844,47 @@
             const value = e.target.value;
             const port = document.getElementById('targetPort');
             
-            // Suggestions de ports selon le type de cible
+            // Suggestions de ports selon le type de cible ou IP
             if (value.includes('80') || value.includes('web')) {
                 port.value = '80';
-            } else if (value.includes('ssh')) {
+            } else if (value.includes('ssh') || value.includes('22')) {
                 port.value = '22';
-            } else if (value.includes('smb') || value.includes('445')) {
+            } else if (value.includes('smb') || value.includes('445') || value.includes('windows')) {
                 port.value = '445';
+            } else if (value === '192.168.1.10') {
+                port.value = '445'; // Windows SMB
+            } else if (value === '192.168.1.20') {
+                port.value = '8080'; // Apache Struts
+            } else if (value === '192.168.1.30') {
+                port.value = '80'; // Drupal
+            }
+        });
+
+        // Auto-remplissage intelligent pour les scans
+        document.getElementById('scanTarget').addEventListener('input', function(e) {
+            const value = e.target.value;
+            const scanType = document.getElementById('scanType');
+            
+            if (value.includes('windows') || value.includes('445')) {
+                scanType.value = 'smb';
+            } else if (value.includes('ssh') || value.includes('22')) {
+                scanType.value = 'ssh';
+            } else if (value.includes('web') || value.includes('80') || value.includes('443')) {
+                scanType.value = 'http';
+            }
+        });
+
+        // Auto-remplissage pour force brute
+        document.getElementById('bruteTarget').addEventListener('input', function(e) {
+            const value = e.target.value;
+            const service = document.getElementById('bruteService');
+            
+            if (value.includes('ssh') || value.includes('22')) {
+                service.value = 'ssh';
+            } else if (value.includes('ftp') || value.includes('21')) {
+                service.value = 'ftp';
+            } else if (value.includes('smb') || value.includes('445')) {
+                service.value = 'smb';
             }
         });
 
@@ -881,13 +945,13 @@
 
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
-            // Valeurs par défaut
-            document.getElementById('lhost').value = '192.168.1.100';
-            document.getElementById('exploitLhost').value = '192.168.1.100';
+            // Détecter automatiquement l'IP au chargement
+            detectLocalIP();
             
             // Message de bienvenue
             addConsoleeLine('output', 'Metasploit Framework Console');
             addConsoleeLine('output', '==============================================');
+            addConsoleeLine('output', 'Détection automatique de votre IP en cours...');
             addConsoleeLine('output', 'Utilisez Ctrl+Enter pour lancer rapidement les actions');
             addConsoleeLine('output', 'Utilisez Esc pour effacer la console');
             addConsoleeLine('prompt', 'Prêt pour les opérations...');
@@ -929,6 +993,87 @@
         window.addEventListener('offline', function() {
             addConsoleeLine('warning', 'Connexion réseau perdue');
         });
+
+        // Démarrer un listener pour le payload généré
+        function startPayloadListener() {
+            console.log('=== DEBUT startPayloadListener ===');
+            
+            // FORCER l'affichage de la console
+            const consoleContainer = document.getElementById('consoleContainer');
+            consoleContainer.style.display = 'block';
+            
+            // FORCER l'ajout d'une ligne de test
+            const terminal = document.getElementById('consoleTerminal');
+            const testLine = document.createElement('div');
+            testLine.className = 'console-line console-success';
+            testLine.textContent = `[${new Date().toLocaleTimeString()}] 🚀 Listener en cours de démarrage...`;
+            terminal.appendChild(testLine);
+            terminal.scrollTop = terminal.scrollHeight;
+            
+            // Utiliser les valeurs des champs
+            const payloadType = document.getElementById('payloadType').value;
+            const lhost = document.getElementById('lhost').value;
+            const lport = document.getElementById('lport').value;
+            
+            // Ajouter plus de lignes
+            const line2 = document.createElement('div');
+            line2.className = 'console-line console-output';
+            line2.textContent = `[${new Date().toLocaleTimeString()}] Configuration: ${payloadType}`;
+            terminal.appendChild(line2);
+            
+            const line3 = document.createElement('div');
+            line3.className = 'console-line console-output';
+            line3.textContent = `[${new Date().toLocaleTimeString()}] LHOST: ${lhost}:${lport}`;
+            terminal.appendChild(line3);
+            
+            terminal.scrollTop = terminal.scrollHeight;
+            
+            const formData = new FormData();
+            formData.append('payload_type', payloadType);
+            formData.append('lhost', lhost);
+            formData.append('lport', lport);
+            
+            console.log('Envoi requête...');
+            
+            fetch('/metasploit/listener', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                const line4 = document.createElement('div');
+                line4.className = 'console-line console-success';
+                line4.textContent = `[${new Date().toLocaleTimeString()}] ✅ Réponse serveur: ${response.status}`;
+                terminal.appendChild(line4);
+                terminal.scrollTop = terminal.scrollHeight;
+                
+                return response.json();
+            })
+            .then(data => {
+                const line5 = document.createElement('div');
+                line5.className = 'console-line console-success';
+                line5.textContent = `[${new Date().toLocaleTimeString()}] 🎧 LISTENER DÉMARRÉ ! ID: ${data.scan_id}`;
+                terminal.appendChild(line5);
+                
+                const line6 = document.createElement('div');
+                line6.className = 'console-line console-warning';
+                line6.textContent = `[${new Date().toLocaleTimeString()}] ⚠️ Transférez le payload sur la machine cible`;
+                terminal.appendChild(line6);
+                
+                terminal.scrollTop = terminal.scrollHeight;
+            })
+            .catch(error => {
+                const lineError = document.createElement('div');
+                lineError.className = 'console-line console-error';
+                lineError.textContent = `[${new Date().toLocaleTimeString()}] ❌ Erreur: ${error.message}`;
+                terminal.appendChild(lineError);
+                terminal.scrollTop = terminal.scrollHeight;
+            });
+        }
+
+        // Fonction pour partager payload
+        function sharePayload() {
+            alert('Fonction sharePayload - À implémenter');
+        }
     </script>
 </body>
 </html>

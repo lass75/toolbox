@@ -1511,6 +1511,75 @@ def metasploit_exploit():
     
     return jsonify({'success': True, 'scan_id': scan_id, 'message': 'Exploit lancé'})
 
+@app.route('/metasploit/detect_ip')
+def metasploit_detect_ip():
+    """Détecte automatiquement l'IP locale"""
+    try:
+        from modules.metasploit_module import get_local_ip, get_network_interfaces
+        
+        local_ip = get_local_ip()
+        interfaces = get_network_interfaces()
+        
+        return jsonify({
+            'success': True,
+            'ip': local_ip,
+            'interfaces': interfaces
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Erreur détection IP: {str(e)}'
+        })
+
+@app.route('/metasploit/listener', methods=['POST'])
+def metasploit_listener():
+    """Démarre un listener pour un payload"""
+    print("DEBUG: Route listener appelée")  # Pour debug
+    
+    payload_type = request.form.get('payload_type')
+    lhost = request.form.get('lhost')
+    lport = request.form.get('lport')
+    
+    print(f"DEBUG: Paramètres - {payload_type}, {lhost}, {lport}")
+    
+    if not all([payload_type, lhost, lport]):
+        return jsonify({'error': 'Paramètres manquants'}), 400
+    
+    scan_id = f"msf_listener_{int(time.time())}"
+    
+    def start_listener_task():
+        try:
+            from modules.metasploit_module import start_listener
+            result = start_listener(payload_type, lhost, lport)
+            scan_results[scan_id] = {
+                'type': 'metasploit_listener',
+                'target': f"{lhost}:{lport}",
+                'output': result,
+                'timestamp': datetime.now(),
+                'status': 'running'
+            }
+            print(f"DEBUG: Listener démarré avec succès")
+        except Exception as e:
+            print(f"DEBUG: Erreur listener - {e}")
+            scan_results[scan_id] = {
+                'type': 'metasploit_listener',
+                'target': f"{lhost}:{lport}",
+                'output': f"Erreur: {str(e)}",
+                'timestamp': datetime.now(),
+                'status': 'error'
+            }
+    
+    thread = threading.Thread(target=start_listener_task)
+    thread.daemon = True
+    thread.start()
+    
+    scan_status[scan_id] = 'running'
+    
+    return jsonify({
+        'success': True,
+        'scan_id': scan_id,
+        'message': 'Listener démarré en arrière-plan'
+    })
 
 
 # ====== DÉMARRAGE DE L'APPLICATION ======
