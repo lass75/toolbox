@@ -5,7 +5,7 @@ Cybersecurity Toolbox - Application Flask
 Projet Scolaire - Le partenaire
 """
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session;
 import threading
 import time
 import os
@@ -29,10 +29,28 @@ app.secret_key = 'cybersec_toolbox_2024'
 scan_results = {}
 scan_status = {}
 
-@app.route('/')
+
+
+@app.route('/', methods=['GET', 'POST'])
+def login():
+    """Page de connexion admin"""
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username == 'admin' and password == 'admin':
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            error = "Identifiants incorrects"
+    return render_template('login.html', error=error)
+
+
+@app.route('/index')
 def index():
     """Page d'accueil"""
     return render_template('index.html')
+
 
 @app.route('/network-security')
 def network_security():
