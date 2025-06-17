@@ -1615,8 +1615,9 @@ def download_report():
         return send_file(report_path, as_attachment=True)
     else:
         return "Aucun rapport trouvé", 404
+    
 
-        @app.route("/generate_report_from_last", methods=["GET"])
+@app.route("/generate_report_from_last", methods=["GET"])
 def generate_report_from_last():
     # ⚠️ ICI : à adapter selon où tu stockes tes vrais résultats
     # Exemple fictif (à remplacer par ton vrai code)
