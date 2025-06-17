@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybersecurity Toolbox - Accueil</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            padding: 20px;
+            border-right: 1px solid #dee2e6;
+        }
+        .module-card {
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .module-card:hover {
+            transform: translateY(-2px);
+        }
+        .scan-result-card {
+            margin-bottom: 15px;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+        }
+        .main-content {
+            padding: 20px;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-shield-alt"></i> Cybersecurity Toolbox
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">Accueil</a>
+                <a class="nav-link" href="{{ url_for('network_security') }}">Scan Securite</a>
+                <a class="nav-link" href="{{ url_for('all_results') }}">Tous les Resultats</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar - Modules disponibles -->
+            <div class="col-md-3 sidebar">
+                <h5 class="mb-4">
+                    <i class="fas fa-tools"></i> Modules Disponibles
+                </h5>
+                
+                <!-- Module Nmap -->
+                <div class="card module-card" onclick="window.location.href='/nmap'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-network-wired fa-2x text-primary me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Nmap</h6>
+                                <small class="text-muted">Scan réseau et ports</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module OWASP ZAP -->
+                <div class="card module-card" onclick="window.location.href='/zap'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-spider fa-2x text-warning me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">OWASP ZAP</h6>
+                                <small class="text-muted">Test application web</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module Wireshark -->
+                <div class="card module-card" onclick="window.location.href='/wireshark'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-search fa-2x text-info me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Wireshark</h6>
+                                <small class="text-muted">Analyse trafic réseau</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module Aircrack-ng -->
+                <div class="card module-card" onclick="window.location.href='/aircrack'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-wifi fa-2x text-secondary me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Aircrack-ng</h6>
+                                <small class="text-muted">Audit sécurité WiFi</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module Hydra -->
+                <div class="card module-card" onclick="window.location.href='/hydra'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-key fa-2x text-danger me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Hydra</h6>
+                                <small class="text-muted">Attaque force brute</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module Nikto -->
+                <div class="card module-card" onclick="window.location.href='/nikto'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-globe-americas fa-2x text-success me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Nikto</h6>
+                                <small class="text-muted">Scanner web vulnérabilités</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module Metasploit -->
+                <div class="card module-card" onclick="window.location.href='/metasploit'">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-rocket fa-2x text-danger me-3" style="color: #dc3545 !important;"></i>
+                            <div>
+                                <h6 class="card-title mb-1">Metasploit</h6>
+                                <small class="text-muted">Framework d'exploitation</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+                
+                <!-- Actions rapides -->
+                <h6 class="mb-3">Actions Rapides</h6>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('network_security') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-play"></i> Nouveau Scan
+                    </a>
+                        <button class="btn btn-outline-success btn-sm" onclick="window.location.href='/generate_report_from_last'">
+    <i class="fas fa-file-download"></i> Générer Rapport PDF
+</button>
+
+
+                    <button class="btn btn-outline-secondary btn-sm" onclick="refreshResults()">
+                        <i class="fas fa-sync"></i> Actualiser
+                    </button>
+                    <a href="{{ url_for('all_results') }}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-list"></i> Voir Tout
+                    </a>
+                </div>
+            </div>
+
+            <!-- Contenu principal -->
+            <div class="col-md-9 main-content">
+                <!-- Titre de la page -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h2>
+                            <i class="fas fa-home"></i> Tableau de Bord
+                            <small class="text-muted">- Cybersecurity Toolbox</small>
+                        </h2>
+                        <p class="text-muted">Dernière mise à jour: <span id="currentTime"></span></p>
+                    </div>
+                </div>
+
+                <!-- Statistiques -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-success" id="completedScans">0</h4>
+                                <small>Scans terminés</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-warning" id="runningScans">0</h4>
+                                <small>En cours</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-danger" id="errorScans">0</h4>
+                                <small>Erreurs</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h4 class="text-info" id="totalModules">7</h4>
+                                <small>Modules disponibles</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Derniers scans -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-history"></i> Derniers Scans
+                                </h5>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadRecentScans()">
+                                    <i class="fas fa-sync"></i> Actualiser
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="recentScans">
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-spinner fa-spin"></i> Chargement des résultats...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Information sur le module sélectionné -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card" id="moduleInfo" style="display: none;">
+                            <div class="card-header">
+                                <h5 class="mb-0" id="moduleTitle">Information Module</h5>
+                            </div>
+                            <div class="card-body" id="moduleContent">
+                                <!-- Contenu dynamique -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Mettre à jour l'heure
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString();
+        }
+
+        // Charger les derniers scans
+        function loadRecentScans() {
+            // Simulation des données
+            const scans = [
+                {
+                    id: 1,
+                    module: 'Nmap',
+                    target: '192.168.1.0/24',
+                    status: 'completed',
+                    time: '15:30'
+                },
+                {
+                    id: 2,
+                    module: 'OWASP ZAP',
+                    target: 'http://testphp.vulnweb.com',
+                    status: 'running',
+                    time: '15:25'
+                },
+                {
+                    id: 3,
+                    module: 'Metasploit',
+                    target: '192.168.1.50',
+                    status: 'completed',
+                    time: '15:20'
+                }
+            ];
+
+            const container = document.getElementById('recentScans');
+            let html = '';
+
+            if (scans.length === 0) {
+                html = '<div class="text-center text-muted py-4">Aucun scan récent</div>';
+            } else {
+                scans.forEach(scan => {
+                    const statusClass = scan.status === 'completed' ? 'success' : 
+                                      scan.status === 'running' ? 'warning' : 'danger';
+                    const statusIcon = scan.status === 'completed' ? 'check-circle' : 
+                                     scan.status === 'running' ? 'clock' : 'times-circle';
+                    const statusText = scan.status === 'completed' ? 'Terminé' : 
+                                     scan.status === 'running' ? 'En cours' : 'Erreur';
+
+                    html += `
+                        <div class="scan-result-card border-start border-3 border-${statusClass} p-3 mb-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">${scan.module}</h6>
+                                    <small class="text-muted">Cible: ${scan.target}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-${statusClass} status-badge">
+                                        <i class="fas fa-${statusIcon}"></i> ${statusText}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">${scan.time}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            container.innerHTML = html;
+
+            // Mettre à jour les statistiques
+            const completed = scans.filter(s => s.status === 'completed').length;
+            const running = scans.filter(s => s.status === 'running').length;
+            const errors = scans.filter(s => s.status === 'error').length;
+
+            document.getElementById('completedScans').textContent = completed;
+            document.getElementById('runningScans').textContent = running;
+            document.getElementById('errorScans').textContent = errors;
+        }
+
+        // Afficher les informations du module
+        function showModuleInfo(moduleType) {
+            const moduleInfo = {
+                'nmap': {
+                    title: 'Nmap Network Scanner',
+                    content: `
+                        <p><strong>Description:</strong> Outil de découverte réseau et scanner de ports</p>
+                        <p><strong>Fonctionnalités:</strong></p>
+                        <ul>
+                            <li>Découverte d'hôtes sur le réseau</li>
+                            <li>Scan de ports TCP/UDP</li>
+                            <li>Détection de services et versions</li>
+                            <li>Détection d'OS</li>
+                            <li>Scripts NSE pour tests avancés</li>
+                        </ul>
+                        <a href="/nmap" class="btn btn-primary">Utiliser Nmap</a>
+                    `
+                },
+                'zap': {
+                    title: 'OWASP ZAP',
+                    content: `
+                        <p><strong>Description:</strong> Proxy de sécurité pour tester les applications web</p>
+                        <p><strong>Fonctionnalités:</strong></p>
+                        <ul>
+                            <li>Scan passif et actif</li>
+                            <li>Spider automatique</li>
+                            <li>Tests de vulnérabilités OWASP Top 10</li>
+                            <li>Proxy d'interception</li>
+                            <li>Rapports détaillés</li>
+                        </ul>
+                        <a href="/zap" class="btn btn-warning">Utiliser ZAP</a>
+                    `
+                },
+                'wireshark': {
+                    title: 'Wireshark Network Analyzer',
+                    content: `
+                        <p><strong>Description:</strong> Analyseur de trafic réseau en temps réel</p>
+                        <p><strong>Fonctionnalités:</strong></p>
+                        <ul>
+                            <li>Capture de paquets en temps réel</li>
+                            <li>Analyse de protocoles</li>
+                            <li>Filtrage avancé</li>
+                            <li>Décodage automatique</li>
+                            <li>Export en différents formats</li>
+                        </ul>
+                        <a href="/wireshark" class="btn btn-info">Utiliser Wireshark</a>
+                    `
+                },
+                'aircrack': {
+                    title: 'Aircrack-ng WiFi Security',
+                    content: `
+                        <p><strong>Description:</strong> Suite d'outils pour auditer la sécurité WiFi</p>
+                        <p><strong>Fonctionnalités:</strong></p>
+                        <ul>
+                            <li>Scan des réseaux WiFi</li>
+                            <li>Capture de handshakes</li>
+                            <li>Attaques dictionnaire</li>
+                            <li>Injection de paquets</li>
+                            <li>Crackage de clés WEP/WPA</li>
+                        </ul>
+                        <a href="/aircrack" class="btn btn-secondary">Utiliser Aircrack-ng</a>
+                    `
+                },
+                'hydra': {
+                    title: 'Hydra Password Cracker',
+                    content: `
+                        <p><strong>Description:</strong> Outil d'attaque par force brute</p>
+                        <p><strong>Fonctionnalités:</strong></p>
+                        <ul>
+                            <li>Support de nombreux protocoles</li>
+                            <li>Attaques par dictionnaire</li>
+                            <li>Attaques par force brute</li>
+                            <li>Listes d'utilisateurs personnalisées</li>
+                            <li>Attaques parallèles optimisées</li>
+                        </ul>
+                        <a href="/hydra" class="btn btn-danger">Utiliser Hydra</a>
+                    `
+                },
+                'nikto': {
+                    title: 'Nikto Web Scanner',
+                    content: `
+                        <p><strong>Description:</strong> Scanner de vulnérabilités pour serveurs web et applications</p>
+                        <p><strong>Fonctionnalités:</strong></p>
+                        <ul>
+                            <li>Plus de 6700 éléments/fichiers dangereux</li>
+                            <li>Détection de versions obsolètes</li>
+                            <li>Tests de vulnérabilités communes</li>
+                            <li>Scan de plugins et modules</li>
+                            <li>Tests SSL/TLS spécialisés</li>
+                            <li>Analyse de configuration serveur</li>
+                        </ul>
+                        <a href="/nikto" class="btn btn-success">Utiliser Nikto</a>
+                    `
+                },
+                'metasploit': {
+                    title: 'Metasploit Framework',
+                    content: `
+                        <p><strong>Description:</strong> Framework de test d'intrusion et d'exploitation de vulnérabilités</p>
+                        <p><strong>Fonctionnalités:</strong></p>
+                        <ul>
+                            <li>Base de données d'exploits</li>
+                            <li>Génération de payloads</li>
+                            <li>Modules d'exploitation</li>
+                            <li>Post-exploitation avancée</li>
+                            <li>Scan de vulnérabilités</li>
+                            <li>Attaques par force brute</li>
+                        </ul>
+                        <a href="/metasploit" class="btn btn-danger">Utiliser Metasploit</a>
+                    `
+                }
+            };
+
+            const info = moduleInfo[moduleType];
+            if (info) {
+                document.getElementById('moduleTitle').textContent = info.title;
+                document.getElementById('moduleContent').innerHTML = info.content;
+                document.getElementById('moduleInfo').style.display = 'block';
+            }
+        }
+
+        // Actualiser les résultats
+        function refreshResults() {
+            loadRecentScans();
+            updateTime();
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTime();
+            loadRecentScans();
+            setInterval(updateTime, 30000); // Mettre à jour toutes les 30 secondes
+            setInterval(loadRecentScans, 60000); // Actualiser les scans toutes les minutes
+        });
+        function generatePDFReport() {
+    fetch('/generate_report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            results: {
+                "Nmap": "Port 22: OPEN\nPort 80: OPEN",
+                "OpenVAS": "Faille critique détectée sur le port 443"
+            }
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.download_url) {
+            window.location.href = data.download_url;
+        } else {
+            alert("Erreur lors de la génération du rapport.");
+        }
+    })
+    .catch(() => alert("Erreur de communication avec le serveur."));
+}
+
+    </script>
+</body>
+</html>
