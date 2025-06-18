@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Rapport d'Audit Cybersécurité</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            margin: 40px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .module-section {
+            margin-bottom: 50px;
+            padding: 20px;
+            background-color: #fff;
+            border-left: 5px solid #2980b9;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .scan-meta {
+            font-size: 0.9em;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            font-size: 0.9em;
+        }
+        th {
+            background-color: #ecf0f1;
+            text-align: left;
+        }
+        .no-result {
+            color: #999;
+            font-style: italic;
+        }
+        .footer {
+            text-align: center;
+            font-size: 0.8em;
+            color: #aaa;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Rapport d'Audit Cybersécurité</h1>
+        <p>Généré par CyberToolbox</p>
+        <p class="scan-meta">Date de génération : {{ generation_date }}</p>
+    </div>
+
+    {% for scan in scans %}
+    <div class="module-section">
+        <h2>{{ scan.module|capitalize }}</h2>
+        <p class="scan-meta">Cible : {{ scan.parameters }} | Date : {{ scan.created_at }}</p>
+
+        {% if scan.result.strip() %}
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Résultat</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in scan.result.splitlines() %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ line }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-result">Aucun résultat disponible pour ce module.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="footer">
+        &copy; {{ generation_date.split('-')[0] }} CyberToolbox — Rapport généré automatiquement.
+    </div>
+</body>
+</html>

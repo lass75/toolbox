@@ -5,11 +5,14 @@ Cybersecurity Toolbox - Application Flask
 Projet Scolaire - Le partenaire
 """
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, send_file
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, send_file,session,make_response
 import threading
 import time
+from jinja2 import Environment, FileSystemLoader
 import os
 from datetime import datetime
+from functools import wraps
+
 
 # Import des modules
 from modules.nmap_module import run_nmap_scan, nmap_quick_scan, nmap_ping_sweep
@@ -20,11 +23,16 @@ from modules.hydra_module import run_hydra_attack, hydra_ssh_attack, hydra_ftp_a
 from modules.nikto_module import run_nikto_scan, nikto_quick_scan, nikto_full_scan, nikto_ssl_scan, nikto_cgi_scan
 from modules.metasploit_module import check_metasploit_installed, search_exploits, get_exploit_info, generate_payload, run_exploit, start_listener, scan_vulnerabilities,brute_force_login, list_payloads
 from modules.report_module import generate_pdf_report
+from modules.auth import auth_bp
+
+
 
 
 from modules.db import get_connection
 
 def init_db():
+    time.sleep(3)  # attends 3 secondes
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -42,6 +50,34 @@ def init_db():
 init_db()
 
 app = Flask(__name__)
+
+
+app.register_blueprint(auth_bp)
+
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('auth.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+@app.route("/users", methods=["GET"])
+def get_users():
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, username, email FROM users;")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        users = [{"id": r[0], "username": r[1], "email": r[2]} for r in rows]
+        return jsonify(users)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 app.secret_key = 'cybersec_toolbox_2024'
 
 # Stockage des résultats en mémoire
@@ -49,8 +85,8 @@ scan_results = {}
 scan_status = {}
 
 @app.route('/')
+@login_required  # Facultatif si tu veux que ce soit public
 def index():
-    """Page d'accueil"""
     return render_template('index.html')
 
 @app.route('/network-security')
@@ -1073,7 +1109,14 @@ def view_scan_result(scan_id):
 @app.route('/results')
 def all_results():
     """Page de tous les résultats"""
-    return render_template('all_results.html', results=scan_results)
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, scan_type, parameters, result, created_at FROM scans")
+    results = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return render_template('all_results.html', results=results)
 
 @app.route('/api/result/<scan_id>')
 def get_result_api(scan_id):
@@ -1616,20 +1659,36 @@ def download_report():
     else:
         return "Aucun rapport trouvé", 404
 
-        @app.route("/generate_report_from_last", methods=["GET"])
+@app.route("/generate_report_from_last")
 def generate_report_from_last():
-    # ⚠️ ICI : à adapter selon où tu stockes tes vrais résultats
-    # Exemple fictif (à remplacer par ton vrai code)
-    last_results = {
-        "Nmap": open("results/nmap_latest.txt").read() if os.path.exists("results/nmap_latest.txt") else "Aucun résultat",
-        "OpenVAS": open("results/openvas_latest.txt").read() if os.path.exists("results/openvas_latest.txt") else "Aucun résultat"
-    }
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT module, parameters, result, created_at
+        FROM scans
+        ORDER BY created_at DESC
+        LIMIT 20
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return "Aucun scan disponible pour générer un rapport", 404
+
+    # Transformer en dict avec du texte bien formatté
+    scan_results = {}
+    for module, parameters, result, created_at in rows:
+        scan_results[f"{module} - {created_at.strftime('%Y-%m-%d %H:%M:%S')}"] = (
+            f"➤ Paramètres : {parameters or 'N/A'}\n"
+            f"➤ Résultat :\n{result or 'Aucun résultat.'}"
+        )
 
     report_path = "static/scan_report.pdf"
     os.makedirs("static", exist_ok=True)
-    generate_pdf_report(last_results, output_path=report_path)
-    return send_file(report_path, as_attachment=True)
+    generate_pdf_report(scan_results, output_path=report_path)
 
+    return send_file(report_path, as_attachment=True)
 
 # ====== DÉMARRAGE DE L'APPLICATION ======
 if __name__ == '__main__':
