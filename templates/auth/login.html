@@ -1,18 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>Connexion</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - CyberToolbox</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-box img {
+            width: 80px;
+            margin-bottom: 20px;
+        }
+        .form-control {
+            border-radius: 0.5rem;
+        }
+        .btn-custom {
+            background-color: #2c5364;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #203a43;
+        }
+        .text-center a {
+            color: #2c5364;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Connexion</h2>
+    <div class="login-box">
+        <div class="text-center">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+            <h3 class="mb-4">Connexion</h3>
+        </div>
         <form method="POST">
-            <input type="text" name="username" placeholder="Nom d'utilisateur" required><br>
-            <input type="password" name="password" placeholder="Mot de passe" required><br>
-            <button type="submit">Se connecter</button>
+            <div class="mb-3">
+                <label for="username" class="form-label">Nom d'utilisateur</label>
+                <input type="text" class="form-control" id="username" name="username" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Mot de passe</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-custom w-100">Se connecter</button>
         </form>
-        <p>Pas encore inscrit ? <a href="{{ url_for('auth.register') }}">Créer un compte</a></p>
+        <div class="text-center mt-3">
+        </div>
     </div>
 </body>
 </html>

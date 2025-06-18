@@ -33,6 +33,14 @@
         .navbar-brand {
             font-weight: bold;
         }
+        .role-badge {
+            font-size: 0.9rem;
+            color: #fff;
+            background-color: #6c757d;
+            padding: 3px 10px;
+            border-radius: 20px;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -42,17 +50,23 @@
             <a class="navbar-brand" href="{{ url_for('index') }}">
                 <i class="fas fa-shield-alt"></i> Cybersecurity Toolbox
             </a>
-            <div class="navbar-nav ms-auto">
+            <div class="navbar-nav ms-auto d-flex align-items-center">
+                {% if session.get('user_role') %}
+                <span class="role-badge">
+                    {{ session['user_role'] | capitalize }}
+                </span>
+                {% endif %}
                 <a class="nav-link" href="{{ url_for('index') }}">Accueil</a> 
                 <a class="nav-link" href="{{ url_for('all_results') }}">Tous les Resultats</a>
                 {% if session.get('user_id') %}
                 <a class="nav-link text-danger" href="{{ url_for('auth.logout') }}">Déconnexion</a>
                 {% else %}
-                 <a class="nav-link text-success" href="{{ url_for('auth.login') }}">Connexion</a>
-                 {% endif %}
+                <a class="nav-link text-success" href="{{ url_for('auth.login') }}">Connexion</a>
+                {% endif %}
             </div>
         </div>
     </nav>
+
 
     <div class="container-fluid">
         <div class="row">
@@ -184,6 +198,10 @@
                             <i class="fas fa-home"></i> Tableau de Bord
                             <small class="text-muted">- Cybersecurity Toolbox</small>
                         </h2>
+                        {% if session.get('role') %}
+    <p class="text-muted">Connecté en tant que : <strong>{{ session['role'] | capitalize }}</strong></p>
+{% endif %}
+
                         <p class="text-muted">Dernière mise à jour: <span id="currentTime"></span></p>
                     </div>
                 </div>

@@ -87,6 +87,7 @@ scan_status = {}
 @app.route('/')
 @login_required  # Facultatif si tu veux que ce soit public
 def index():
+    role = session.get('role')  # récupère le rôle depuis la session
     return render_template('index.html')
 
 @app.route('/network-security')
@@ -1709,7 +1710,8 @@ if __name__ == '__main__':
     print(f"🌐 Application accessible sur: http://127.0.0.1:5000")
     print("⚠️  Utilisez uniquement sur vos propres systèmes ou avec autorisation!")
     
-app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, ssl_context=('certs/cert.pem', 'certs/key.pem'))
 
 
     
